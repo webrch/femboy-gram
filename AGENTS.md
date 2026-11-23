@@ -193,6 +193,28 @@ gradle :TMessagesProj_AppStandalone:assembleAfatStandalone
 затем переименовать под FemboyGram и заменить реквизиты на указанные выше.
 Публично в постах упоминать только свой донат, без чужих кредитов.
 
+
+### Режим призрака (добавлен 24.11.2026, полный)
+
+Перенесён из AyuGram4A (`AyuGram/AyuGram4A`, GPL-2.0, Copyright @Radolyn, 2023),
+код адаптирован под FemboyGram, атрибуция добавлена в `ATTRIBUTION.md`.
+- Новый класс `org.telegram.femboy.FemboyGhost` + настройки в `FemboyConfig`
+  (`ghost_mode`, `ghost_read`, `ghost_online`, `ghost_typing`, `ghost_offline_marker`,
+  `ghost_mark_after_send`).
+- Хук в `ConnectionsManager.sendRequestInternal()`:
+  - дропает `TL_messages_setTyping` / `setEncryptedTyping` (скрытие набора текста);
+  - выставляет `offline = true` в `org.telegram.tgnet.tl.TL_account.updateStatus`
+    (в этой версии Telegram класс живёт в `tl`, а не в `TLRPC`!);
+  - перехватывает read-пакеты (`messages.readHistory`, `readDiscussion`,
+    `channels.readHistory`, `readEncryptedHistory`, `readMessageContents`),
+    отвечая фейковым `TL_messages_affectedMessages` с `pts = -1`, `pts_count = 0`.
+  - разовая поблажка `allowNextRead(1)` после отправки сообщения.
+- Настройки: «Настройки → FemboyGram → Приватность и сеть», раздел «Режим призрака»,
+  мастер-тумблер и 4 дополнительных переключателя, строки на en/ru/zh.
+- Внимание: апостроф в Android-строках надо экранировать (`Don\'t`), иначе AAPT падает.
+- APK пересобран (70 345 404 байт), залит в релиз v1.0, исходники запушены.
+- ToS-breaking: Telegram может ограничить аккаунт — владелец предупреждён.
+
 ## 4. Важные технические детали
 
 1. **Патч — источник истины.** Любая правка кода делается в `tg-src/`, потом:

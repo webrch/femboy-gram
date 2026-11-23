@@ -9,7 +9,7 @@ FemboyGram 由本仓库的补丁基于 [DrKLO/Telegram](https://github.com/DrKLO
 
 ## 下载
 
-**[FemboyGram 1.2.1 — APK](https://github.com/webrch/femboy-gram/releases/download/v1.2.1/FemboyGram-1.2.1.apk)**
+**[FemboyGram 1.2.2 — APK](https://github.com/webrch/femboy-gram/releases/download/v1.2.2/FemboyGram-1.2.2.apk)**
 
 可与官方 Telegram 并存安装。需要 Android 23+，仅支持 arm64。
 

@@ -294,6 +294,23 @@ gradle :TMessagesProj_AppStandalone:assembleAfatStandalone
 - Версия 1.2.1, `APP_VERSION_CODE=7241` -> versionCode 72419.
 - APK 70 355 911 байт, релиз https://github.com/webrch/femboy-gram/releases/tag/v1.2.1
 
+
+### Релиз 1.2.2 — исправление уведомления об обновлении (24.11.2026)
+
+Причина, по которой не приходила полоска обновления: `FemboyUpdate.available()`
+сравнивает версии **строками** через `newer(version, FemboyConfig.APP_VERSION)`.
+У установленной сборки (пре-релиз v1.2 и v1.2.1) `APP_VERSION` уже был «1.2.1»,
+и `version.json` с «1.2.1» выглядел для неё как та же версия — проверка
+возвращала null и уведомление не показывалось.
+- Подняты `APP_VERSION = "1.2.2"` и `APP_VERSION_CODE=7242` -> versionCode 72429.
+- `version.json` и README (en/ru/zh) указывают на `v1.2.2`.
+- APK 70 355 916 байт, релиз https://github.com/webrch/femboy-gram/releases/tag/v1.2.2
+- **Правило на будущее:** при каждом выпуске поднимать и `APP_VERSION`, и
+  `APP_VERSION_CODE`; когда `APP_VERSION` совпадает со значением в `version.json`,
+  обновлялка молчит, даже если versionCode apk больше.
+- Функции из 1.2.1 (голосовой ченджер, скрытые чаты, донат, гид саппортера)
+  вошли в эту сборку без изменений.
+
 ## 4. Важные технические детали
 
 1. **Патч — источник истины.** Любая правка кода делается в `tg-src/`, потом:

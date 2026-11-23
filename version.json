@@ -1,7 +1,7 @@
 {
-  "version": "1.2.1",
-  "apk": "https://github.com/webrch/femboy-gram/releases/download/v1.2.1/FemboyGram-1.2.1.apk",
-  "about": "FemboyGram 1.2.1: voice changer, hidden chats, donate and supporter badge guide.",
-  "about_ru": "FemboyGram 1.2.1: войс-ченджер, скрытые чаты, донат и инструкция по бейджу саппортера.",
-  "about_zh": "FemboyGram 1.2.1：变声器、隐藏聊天、捐赠和支持者徽章指南。"
+  "version": "1.2.2",
+  "apk": "https://github.com/webrch/femboy-gram/releases/download/v1.2.2/FemboyGram-1.2.2.apk",
+  "about": "FemboyGram 1.2.2: voice changer, hidden chats, donate and supporter badge guide. Update notification fixed.",
+  "about_ru": "FemboyGram 1.2.2: войс-ченджер, скрытые чаты, донат и гид по бейджу саппортера. Исправлено уведомление об обновлении.",
+  "about_zh": "FemboyGram 1.2.2：变声器、隐藏聊天、捐赠和支持者徽章指南。修复更新提示。"
 }

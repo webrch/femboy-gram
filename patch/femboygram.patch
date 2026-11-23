@@ -13122,7 +13122,7 @@ index 00000000..c0b00222
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java
 new file mode 100644
-index 00000000..40d447c9
+index 00000000..cdafe8f2
 --- /dev/null
 +++ b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java
 @@ -0,0 +1,575 @@
@@ -13168,7 +13168,7 @@ index 00000000..40d447c9
 +     * 0.99, а не 1.0, нарочно: настоящая единица должна остаться свободной
 +     * под настоящий выпуск, а пререлиз обязан быть строго меньше её.
 +     */
-+    public static final String APP_VERSION = "1.2.1";
++    public static final String APP_VERSION = "1.2.2";
 +
 +    /**
 +     * Номер, который видит человек. У пререлизов 0.99.N он был «1.0.N»; с
@@ -101127,7 +101127,7 @@ index f7c8fcb7..b4cc76fc 100644
  }
  repositories {
 diff --git a/gradle.properties b/gradle.properties
-index 4a5efa19..144c87f8 100644
+index 4a5efa19..575959e8 100644
 --- a/gradle.properties
 +++ b/gradle.properties
 @@ -13,9 +13,9 @@
@@ -101135,7 +101135,7 @@ index 4a5efa19..144c87f8 100644
  # org.gradle.parallel=true
  #Sat Mar 12 05:53:50 MSK 2016
 -APP_VERSION_CODE=7237
-+APP_VERSION_CODE=7241
++APP_VERSION_CODE=7242
  APP_VERSION_NAME=13.1.1
 -APP_PACKAGE=org.telegram.messenger
 +APP_PACKAGE=org.femboygram.app

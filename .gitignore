@@ -1,0 +1,8 @@
+*.apk
+*.keystore
+google-services.json
+build/
+.gradle/
+__pycache__/
+emoji_лист.png
+emoji_ветер.gif

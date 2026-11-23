@@ -1,0 +1,16 @@
+[
+  {
+    "id": "fat",
+    "name": "Толстый тилкайо",
+    "name_en": "Fat Tilcayo",
+    "name_zh": "胖 Tilcayo",
+    "age": 3,
+    "about": "Самый обычный толстый тилкайо. Ищу того, кто будет чесать за ушами и не спросит, почему миска опять пустая.",
+    "about_en": "The most ordinary fat tilcayo. Looking for someone who will scratch behind my ears and never ask why the bowl is empty again.",
+    "about_zh": "最普通的胖 Tilcayo。寻找一个会给我挠耳朵、而且从不问碗为什么又空了的人。",
+    "image": "https://femboygram.example/api/gram/tilcayo/fat.webp",
+    "tags": ["любит поесть", "спит 20 часов", "пушистый"],
+    "tags_en": ["loves food", "sleeps 20 hours", "fluffy"],
+    "tags_zh": ["爱吃", "一天睡 20 小时", "毛茸茸"]
+  }
+]

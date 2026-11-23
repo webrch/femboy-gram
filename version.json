@@ -1,7 +1,7 @@
 {
-  "version": "1.1",
-  "apk": "https://github.com/webrch/femboy-gram/releases/download/v1.1/FemboyGram-1.1.apk",
-  "about": "FemboyGram 1.1: full ghost mode (read, online, typing), pastel Material You themes, music tab and player, streaks with a 3D pet, plugins.",
-  "about_ru": "FemboyGram 1.1: полный режим призрака (прочитанное, онлайн, набор текста), пастельные темы Material You, вкладка музыки и плеер, серии с 3D-питомцем, плагины.",
-  "about_zh": "FemboyGram 1.1：完整幽灵模式（已读、在线、输入状态）、粉彩 Material You 主题、音乐标签页与播放器、3D 宠物连续聊天、插件。"
+  "version": "1.2",
+  "apk": "https://github.com/webrch/femboy-gram/releases/download/v1.2/FemboyGram-1.2.apk",
+  "about": "FemboyGram 1.2: badges with a heart glyph, pastel Material You themes, ghost mode, music player, plugins.",
+  "about_ru": "FemboyGram 1.2: бейджи с сердечком, пастельные темы Material You, режим призрака, плеер, плагины.",
+  "about_zh": "FemboyGram 1.2：爱心徽章、粉彩 Material You 主题、幽灵模式、音乐播放器、插件。"
 }

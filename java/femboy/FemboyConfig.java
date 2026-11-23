@@ -40,7 +40,7 @@ public class FemboyConfig {
      * 0.99, а не 1.0, нарочно: настоящая единица должна остаться свободной
      * под настоящий выпуск, а пререлиз обязан быть строго меньше её.
      */
-    public static final String APP_VERSION = "1.1";
+    public static final String APP_VERSION = "1.2";
 
     /**
      * Номер, который видит человек. У пререлизов 0.99.N он был «1.0.N»; с
@@ -534,5 +534,13 @@ public class FemboyConfig {
 
     public static void setGhostMarkReadAfterSend(boolean on) {
         prefs().edit().putBoolean("ghost_mark_after_send", on).apply();
+    }
+
+    public static boolean badgesEnabled() {
+        return prefs().getBoolean("badges", true);
+    }
+
+    public static void setBadgesEnabled(boolean on) {
+        prefs().edit().putBoolean("badges", on).apply();
     }
 }

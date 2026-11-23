@@ -1,0 +1,62 @@
+[
+  {
+    "peer": 6536442376,
+    "id": "owner",
+    "color": "FF9ECD",
+    "title": "FemboyGram owner",
+    "title_ru": "Владелец FemboyGram",
+    "title_zh": "FemboyGram 所有者",
+    "about": "Made this fork.",
+    "about_ru": "Сделал этот форк.",
+    "about_zh": "制作了这个分支。",
+    "url": "https://t.me/femboygm"
+  },
+  {
+    "peer": 9051996412,
+    "id": "owner",
+    "color": "FF9ECD",
+    "title": "FemboyGram owner",
+    "title_ru": "Владелец FemboyGram",
+    "title_zh": "FemboyGram 所有者",
+    "about": "Made this fork.",
+    "about_ru": "Сделал этот форк.",
+    "about_zh": "制作了这个分支。",
+    "url": "https://t.me/femboygm"
+  },
+  {
+    "peer": 6497351887,
+    "id": "friend",
+    "color": "C9A6FF",
+    "title": "Owner's friend",
+    "title_ru": "Друг владельца",
+    "title_zh": "所有者好友",
+    "about": "The owner's best friend.",
+    "about_ru": "Лучший друг владельца.",
+    "about_zh": "所有者最好的朋友。",
+    "url": ""
+  },
+  {
+    "peer": -1004414542364,
+    "id": "channel",
+    "color": "9FD0FF",
+    "title": "Official channel",
+    "title_ru": "Официальный канал",
+    "title_zh": "官方频道",
+    "about": "The fork's own channel.",
+    "about_ru": "Официальный канал форка.",
+    "about_zh": "分支官方频道。",
+    "url": "https://t.me/femboygm"
+  },
+  {
+    "peer": -1004353739064,
+    "id": "channel",
+    "color": "9FD0FF",
+    "title": "Official channel",
+    "title_ru": "Официальный канал",
+    "title_zh": "官方频道",
+    "about": "The fork's own channel.",
+    "about_ru": "Официальный канал форка.",
+    "about_zh": "分支官方频道。",
+    "url": "https://t.me/femboyconfs"
+  }
+]

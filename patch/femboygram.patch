@@ -12306,54 +12306,418 @@ index 00000000..bfb4c1ce
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyBadge.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyBadge.java
 new file mode 100644
-index 00000000..d3123a36
+index 00000000..7e4ba00a
 --- /dev/null
 +++ b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyBadge.java
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,409 @@
 +package org.telegram.femboy;
 +
 +import android.content.Context;
++import android.graphics.Canvas;
 +import android.graphics.Paint;
 +import android.graphics.drawable.Drawable;
++import android.graphics.drawable.GradientDrawable;
++import android.graphics.drawable.LayerDrawable;
++import android.view.Gravity;
++import android.widget.ImageView;
++import android.widget.LinearLayout;
++import android.widget.TextView;
++
++import androidx.core.content.ContextCompat;
++
++import org.json.JSONArray;
++import org.json.JSONObject;
++import org.telegram.messenger.AndroidUtilities;
++import org.telegram.messenger.LocaleController;
++import org.telegram.messenger.NotificationCenter;
++import org.telegram.messenger.R;
++import org.telegram.messenger.UserConfig;
++import org.telegram.messenger.browser.Browser;
++import org.telegram.ui.ActionBar.AlertDialog;
++import org.telegram.ui.ActionBar.Theme;
++import org.telegram.ui.Components.LayoutHelper;
 +
 +import java.util.ArrayList;
++import java.util.Arrays;
 +import java.util.Collections;
++import java.util.HashMap;
 +import java.util.List;
++import java.util.Map;
 +
 +/**
-+ * Badges are disabled in FemboyGram. The class is kept as an inert adapter so
-+ * the many call sites in Telegram's own UI keep compiling without any badge
-+ * logic being present in the app.
++ * Badges shown next to names. The list lives in badges.json in the repository,
++ * so supporters can be added without rebuilding the app. A small built-in copy
++ * is kept for the first launch / offline case.
 + */
 +public final class FemboyBadge {
 +
 +    private FemboyBadge() {}
 +
 +    public static final class Badge {
-+        public Badge(long peerId, Object remote, int color, Object unused) {}
-+        public String id() { return ""; }
-+        public String title() { return ""; }
-+        public String about() { return ""; }
-+        public int color() { return 0; }
++        public final long peerId;
++        private final int titleRes;
++        private final int aboutRes;
++        private final JSONObject remote;
++        public final int color;
++        public final String url;
++        private String builtInId = "";
++
++        Badge(String id, long peerId, int titleRes, int aboutRes, int color, String url) {
++            this(peerId, titleRes, aboutRes, color, url);
++            this.builtInId = id;
++        }
++
++        Badge(long peerId, int titleRes, int aboutRes, int color, String url) {
++            this.peerId = peerId;
++            this.titleRes = titleRes;
++            this.aboutRes = aboutRes;
++            this.remote = null;
++            this.color = color;
++            this.url = url;
++        }
++
++        Badge(long peerId, JSONObject remote, int color, String url) {
++            this.peerId = peerId;
++            this.titleRes = 0;
++            this.aboutRes = 0;
++            this.remote = remote;
++            this.color = color;
++            this.url = url;
++        }
++
++        public String id() {
++            if (remote != null) {
++                final String id = remote.optString("id", "");
++                if (!id.isEmpty()) return id;
++                if ("supporter".equals(remote.optString("kind", ""))) return "supporter";
++                return remote.optString("title", "").toLowerCase().replace(' ', '_');
++            }
++            return builtInId;
++        }
++
++        public String title() {
++            return remote != null
++                    ? FemboyRemote.localized(remote, "title", "")
++                    : LocaleController.getString(titleRes);
++        }
++
++        public String about() {
++            return remote != null
++                    ? FemboyRemote.localized(remote, "about", "")
++                    : LocaleController.getString(aboutRes);
++        }
++
++        JSONObject remote() {
++            return remote;
++        }
 +    }
 +
-+    public static void refresh() {}
-+    public static void refreshIfStale() {}
-+    public static long chatPeer(long id) { return 0; }
-+    public static boolean has(long peerId) { return false; }
-+    public static CharSequence withBadge(Context context, CharSequence name, long peerId) { return name; }
-+    public static float badgeWidth(Paint paint) { return 0; }
-+    public static float badgeWidth(Paint paint, long peerId) { return 0; }
-+    public static Drawable iconDrawable(Context context, Badge badge) { return null; }
-+    public static Drawable iconDrawable(Context context, long peerId) { return null; }
-+    public static String title(long peerId) { return null; }
-+    public static void show(Context context, Badge badge) {}
-+    public static void show(Context context, long peerId) {}
-+    public static List<Badge> all(long peerId) { return Collections.emptyList(); }
-+    public static List<Badge> ordered(long peerId) { return new ArrayList<>(); }
-+    public static boolean isHidden(long peerId, Badge badge) { return false; }
-+    public static Badge[] list() { return new Badge[0]; }
-+    public static void setLocalPrefs(long peerId, String[] order, String[] hidden) {}
++    /** Built-in fallback, mirrors badges.json in the repository. */
++    private static final Badge[] BUILT_IN = {
++            new Badge("owner", 6536442376L, R.string.FemboyBadgeOwnerTitle, R.string.FemboyBadgeOwnerAbout,
++                    0xFFFF9ECD, "https://t.me/femboygm"),
++            new Badge("owner", 9051996412L, R.string.FemboyBadgeOwnerTitle, R.string.FemboyBadgeOwnerAbout,
++                    0xFFFF9ECD, "https://t.me/femboygm"),
++            new Badge("friend", 6497351887L, R.string.FemboyBadgeFriendTitle, R.string.FemboyBadgeFriendAbout,
++                    0xFFC9A6FF, null),
++            new Badge("channel", -1004414542364L, R.string.FemboyBadgeChannelTitle, R.string.FemboyBadgeChannelAbout,
++                    0xFF9FD0FF, "https://t.me/femboygm"),
++            new Badge("channel", -1004353739064L, R.string.FemboyBadgeChannelTitle, R.string.FemboyBadgeChannelAbout,
++                    0xFF9FD0FF, "https://t.me/femboyconfs"),
++    };
++
++    private static final String FILE = "badges.json";
++    private static final String CACHE_KEY = "badges";
++    private static final long MAX_AGE = 5 * 60 * 1000L;
++
++    private static Badge[] parsed;
++    private static String parsedLanguage;
++    private static Map<Long, String[][]> serverPrefs = new HashMap<>();
++    private static final Map<Long, String[][]> localPrefs = new HashMap<>();
++
++    /** Re-read badges.json from the repository. Safe to call often. */
++    public static void refresh() {
++        FemboyRemote.fetch(FILE, CACHE_KEY, text -> {
++            if (text == null) return;
++            parsed = null;
++            for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
++                if (UserConfig.getInstance(a).isClientActivated()) {
++                    NotificationCenter.getInstance(a).postNotificationName(
++                            NotificationCenter.updateInterfaces,
++                            org.telegram.messenger.MessagesController.UPDATE_MASK_NAME);
++                }
++            }
++        });
++    }
++
++    public static void refreshIfStale() {
++        if (System.currentTimeMillis() - FemboyRemote.cachedAt(CACHE_KEY) > MAX_AGE) {
++            refresh();
++        }
++    }
++
++    private static Badge[] badges() {
++        final String language = language();
++        if (parsed != null && equal(parsedLanguage, language)) return parsed;
++        final String text = FemboyRemote.cached(CACHE_KEY);
++        if (text == null) return BUILT_IN;
++        final Badge[] fromFile = parse(text);
++        if (fromFile == null || fromFile.length == 0) return BUILT_IN;
++        parsed = fromFile;
++        parsedLanguage = language;
++        return parsed;
++    }
++
++    private static String language() {
++        try {
++            return LocaleController.getInstance().getCurrentLocale().getLanguage();
++        } catch (Exception ignored) {
++            return null;
++        }
++    }
++
++    private static boolean equal(String a, String b) {
++        return a == null ? b == null : a.equals(b);
++    }
++
++    private static Badge[] parse(String text) {
++        final List<Badge> out = new ArrayList<>();
++        final Map<Long, String[][]> prefs = new HashMap<>();
++        try {
++            final JSONArray array = new JSONArray(text);
++            for (int i = 0; i < array.length(); i++) {
++                try {
++                    final JSONObject item = array.getJSONObject(i);
++                    if (item.has("prefs")) {
++                        prefs.put(item.getLong("prefs"),
++                                new String[][]{strings(item.optJSONArray("order")), strings(item.optJSONArray("hidden"))});
++                        continue;
++                    }
++                    final long peer = item.getLong("peer");
++                    final String url = item.optString("url", null);
++                    out.add(new Badge(peer, item, color(item.optString("color", null)),
++                            url == null || url.isEmpty() ? null : url));
++                } catch (Exception ignored) {
++                }
++            }
++        } catch (Exception ignored) {
++            return null;
++        }
++        serverPrefs = prefs;
++        return out.toArray(new Badge[0]);
++    }
++
++    private static String[] strings(JSONArray array) {
++        if (array == null) return new String[0];
++        final String[] out = new String[array.length()];
++        for (int i = 0; i < out.length; i++) out[i] = array.optString(i, "");
++        return out;
++    }
++
++    private static int color(String value) {
++        if (value == null) return 0xFFFF9ECD;
++        String hex = value.trim();
++        if (hex.startsWith("#")) hex = hex.substring(1);
++        try {
++            final long parsedColor = Long.parseLong(hex, 16);
++            return hex.length() <= 6 ? (int) (0xFF000000L | parsedColor) : (int) parsedColor;
++        } catch (Exception ignored) {
++            return 0xFFFF9ECD;
++        }
++    }
++
++    public static long chatPeer(long chatId) {
++        return -chatId;
++    }
++
++    public static void setLocalPrefs(long peerId, String[] order, String[] hidden) {
++        localPrefs.put(peerId, new String[][]{order, hidden});
++    }
++
++    private static String[][] prefsOf(long peerId) {
++        final String[][] local = localPrefs.get(peerId);
++        return local != null ? local : serverPrefs.get(peerId);
++    }
++
++    public static List<Badge> raw(long peerId) {
++        final List<Badge> found = new ArrayList<>();
++        for (Badge badge : badges()) {
++            if (badge.peerId == peerId) {
++                boolean dup = false;
++                for (Badge b : found) if (b.id().equals(badge.id())) dup = true;
++                if (!dup) found.add(badge);
++            }
++        }
++        return found;
++    }
++
++    public static boolean isHidden(long peerId, Badge badge) {
++        final String[][] p = prefsOf(peerId);
++        if (p == null) return false;
++        for (String h : p[1]) if (h.equals(badge.id())) return true;
++        return false;
++    }
++
++    public static List<Badge> ordered(long peerId) {
++        final List<Badge> found = raw(peerId);
++        final String[][] p = prefsOf(peerId);
++        if (p == null) return found;
++        final List<String> order = Arrays.asList(p[0]);
++        Collections.sort(found, (a, b) -> {
++            int ia = order.indexOf(a.id()), ib = order.indexOf(b.id());
++            if (ia < 0) ia = Integer.MAX_VALUE;
++            if (ib < 0) ib = Integer.MAX_VALUE;
++            return Integer.compare(ia, ib);
++        });
++        return found;
++    }
++
++    public static Badge[] list() {
++        final List<Badge> kinds = new ArrayList<>();
++        for (Badge badge : badges()) {
++            boolean seen = false;
++            for (Badge already : kinds) {
++                if (already.title().equals(badge.title())) { seen = true; break; }
++            }
++            if (!seen) kinds.add(badge);
++        }
++        return kinds.toArray(new Badge[0]);
++    }
++
++    public static Badge of(long peerId) {
++        final List<Badge> all = all(peerId);
++        return all.isEmpty() ? null : all.get(0);
++    }
++
++    public static List<Badge> all(long peerId) {
++        final List<Badge> found = new ArrayList<>();
++        if (!FemboyConfig.badgesEnabled()) return found;
++        for (Badge badge : ordered(peerId)) {
++            if (!isHidden(peerId, badge)) found.add(badge);
++        }
++        return found;
++    }
++
++    public static boolean has(long peerId) {
++        return of(peerId) != null;
++    }
++
++    public static Drawable iconDrawable(Context context, long peerId) {
++        return iconDrawable(context, of(peerId));
++    }
++
++    public static CharSequence withBadge(Context context, CharSequence name, long peerId) {
++        if (name == null || peerId == 0) return name;
++        final List<Badge> all = all(peerId);
++        if (all.isEmpty()) return name;
++        final android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder(name);
++        for (Badge badge : shown(all)) {
++            final Drawable icon = iconDrawable(context, badge);
++            if (icon == null) continue;
++            final int at = sb.length();
++            sb.append(" \u2060");
++            sb.setSpan(new BadgeSpan(icon), at + 1, at + 2, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
++        }
++        return sb;
++    }
++
++    public static float badgeWidth(Paint paint) {
++        return paint.getTextSize() * 0.95f + paint.measureText(" ");
++    }
++
++    public static float badgeWidth(Paint paint, long peerId) {
++        return badgeWidth(paint) * Math.max(1, shown(all(peerId)).size());
++    }
++
++    private static List<Badge> shown(List<Badge> all) {
++        final List<Badge> out = new ArrayList<>();
++        if (!all.isEmpty()) out.add(all.get(0));
++        return out;
++    }
++
++    public static final class BadgeSpan extends android.text.style.ReplacementSpan {
++        private final Drawable icon;
++
++        BadgeSpan(Drawable icon) {
++            this.icon = icon;
++        }
++
++        @Override
++        public int getSize(Paint paint, CharSequence text, int start, int end, Paint.FontMetricsInt fm) {
++            return Math.round(paint.getTextSize() * 0.95f);
++        }
++
++        @Override
++        public void draw(Canvas canvas, CharSequence text, int start, int end, float x,
++                         int top, int y, int bottom, Paint paint) {
++            final int size = Math.round(paint.getTextSize() * 0.95f);
++            final Paint.FontMetricsInt fm = paint.getFontMetricsInt();
++            final int center = y + (fm.ascent + fm.descent) / 2;
++            icon.setBounds((int) x, center - size / 2, (int) x + size, center - size / 2 + size);
++            icon.setAlpha(paint.getAlpha());
++            icon.draw(canvas);
++        }
++    }
++
++    public static Drawable iconDrawable(Context context, Badge badge) {
++        if (context == null || badge == null) return null;
++        try {
++            final GradientDrawable field = new GradientDrawable();
++            field.setShape(GradientDrawable.RECTANGLE);
++            field.setCornerRadius(AndroidUtilities.dp(24) * 5f / 24f);
++            field.setColor(badge.color);
++            final Drawable heart = ContextCompat.getDrawable(context, R.drawable.femboy_badge_heart);
++            if (heart == null) return field;
++            return new LayerDrawable(new Drawable[]{field, heart});
++        } catch (Throwable t) {
++            return null;
++        }
++    }
++
++    public static String title(long peerId) {
++        final Badge badge = of(peerId);
++        return badge == null ? null : badge.title();
++    }
++
++    public static void show(Context context, long peerId) {
++        show(context, of(peerId));
++    }
++
++    public static void show(Context context, Badge badge) {
++        if (context == null || badge == null) return;
++        try {
++            final LinearLayout layout = new LinearLayout(context);
++            layout.setOrientation(LinearLayout.VERTICAL);
++            layout.setGravity(Gravity.CENTER_HORIZONTAL);
++
++            final ImageView icon = new ImageView(context);
++            icon.setImageDrawable(iconDrawable(context, badge));
++            layout.addView(icon, LayoutHelper.createLinear(72, 72, Gravity.CENTER_HORIZONTAL, 0, 4, 0, 12));
++
++            final TextView title = new TextView(context);
++            title.setText(badge.title());
++            title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 18);
++            title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
++            layout.addView(title, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL));
++
++            final TextView about = new TextView(context);
++            about.setText(badge.about());
++            about.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 14);
++            about.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText2));
++            layout.addView(about, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL, 0, 4, 0, 0));
++
++            final AlertDialog.Builder builder = new AlertDialog.Builder(context)
++                    .setView(layout)
++                    .setTitle(badge.title())
++                    .setNegativeButton(LocaleController.getString(R.string.Close), null);
++            if (badge.url != null && !badge.url.isEmpty()) {
++                builder.setPositiveButton(LocaleController.getString(R.string.OpenLink),
++                        (d, w) -> Browser.openUrl(context, badge.url));
++            }
++            builder.show();
++        } catch (Exception ignored) {
++        }
++    }
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyBanner.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyBanner.java
 new file mode 100644
@@ -12758,10 +13122,10 @@ index 00000000..c0b00222
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java
 new file mode 100644
-index 00000000..ef102c27
+index 00000000..def85888
 --- /dev/null
 +++ b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java
-@@ -0,0 +1,538 @@
+@@ -0,0 +1,546 @@
 +package org.telegram.femboy;
 +
 +import android.content.Context;
@@ -12804,7 +13168,7 @@ index 00000000..ef102c27
 +     * 0.99, а не 1.0, нарочно: настоящая единица должна остаться свободной
 +     * под настоящий выпуск, а пререлиз обязан быть строго меньше её.
 +     */
-+    public static final String APP_VERSION = "1.1";
++    public static final String APP_VERSION = "1.2";
 +
 +    /**
 +     * Номер, который видит человек. У пререлизов 0.99.N он был «1.0.N»; с
@@ -13298,6 +13662,14 @@ index 00000000..ef102c27
 +
 +    public static void setGhostMarkReadAfterSend(boolean on) {
 +        prefs().edit().putBoolean("ghost_mark_after_send", on).apply();
++    }
++
++    public static boolean badgesEnabled() {
++        return prefs().getBoolean("badges", true);
++    }
++
++    public static void setBadgesEnabled(boolean on) {
++        prefs().edit().putBoolean("badges", on).apply();
 +    }
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyCopy.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyCopy.java
@@ -26117,10 +26489,10 @@ index 00000000..3958c775
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyUpdate.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyUpdate.java
 new file mode 100644
-index 00000000..360691d5
+index 00000000..05ca3870
 --- /dev/null
 +++ b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyUpdate.java
-@@ -0,0 +1,402 @@
+@@ -0,0 +1,403 @@
 +package org.telegram.femboy;
 +
 +import android.app.Activity;
@@ -26214,6 +26586,7 @@ index 00000000..360691d5
 +     * «посмотри, не появилось ли нового».
 +     */
 +    public static void checkAll(Runnable done) {
++        FemboyBadge.refresh();
 +        check(done);
 +    }
 +
@@ -47322,7 +47695,7 @@ index b3cd7c50..24990fdd 100644
          ssb.setSpan(new ImageSpan(logoDrawable), 0, ssb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
          titles[0] = ssb;
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/LaunchActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/LaunchActivity.java
-index f5fb9104..2e99ac00 100644
+index f5fb9104..80aed3ca 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/LaunchActivity.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/LaunchActivity.java
 @@ -449,6 +449,12 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
@@ -47338,7 +47711,7 @@ index f5fb9104..2e99ac00 100644
          Theme.createCommonChatResources();
          Theme.createDialogsResources(this);
          if (SharedConfig.passcodeHash.length() != 0 && SharedConfig.appLocked) {
-@@ -461,6 +467,32 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
+@@ -461,6 +467,33 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
          frameLayout.setClipToPadding(false);
          frameLayout.setClipChildren(false);
          setContentView(frameLayout);
@@ -47352,6 +47725,7 @@ index f5fb9104..2e99ac00 100644
 +        // повторного падения.
 +        org.telegram.femboy.FemboyHookEngine.start();
 +        org.telegram.femboy.FemboyPlugins.preinstallExample();
++        org.telegram.femboy.FemboyBadge.refresh();
 +        org.telegram.femboy.FemboyPluginHost.start();
 +        // Список значков перечитывается с гитхаба при каждом запуске: правка в
 +        // репозитории должна доезжать до людей без новой сборки. Ответа никто
@@ -47371,7 +47745,7 @@ index f5fb9104..2e99ac00 100644
          rootAnimatedInsetsListener = new WindowAnimatedInsetsProvider(frameLayout);
          pipActivityController.addPipListener(new IPipActivityListener() {
              final ActivityVisibilityController activityVisibilityController = createActivityVisibilityController(false);
-@@ -3090,7 +3122,9 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
+@@ -3090,7 +3123,9 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
              } else if (showPlayer) {
                  if (!actionBarLayout.getFragmentStack().isEmpty()) {
                      BaseFragment fragment = actionBarLayout.getFragmentStack().get(0);
@@ -47382,7 +47756,7 @@ index f5fb9104..2e99ac00 100644
                  }
                  pushOpened = false;
              } else if (showLocations) {
-@@ -6733,6 +6767,12 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
+@@ -6733,6 +6768,12 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
  
      @Override
      protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -47395,7 +47769,7 @@ index f5fb9104..2e99ac00 100644
          if (SharedConfig.passcodeHash.length() != 0 && SharedConfig.lastPauseTime != 0) {
              SharedConfig.lastPauseTime = 0;
              if (BuildVars.LOGS_ENABLED) {
-@@ -7084,6 +7124,8 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
+@@ -7084,6 +7125,8 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
      protected void onResume() {
          super.onResume();
          isResumed = true;
@@ -48728,6 +49102,77 @@ index 8ce1270e..17a42708 100644
          if (this.allowScreenshots != allowScreenshots) {
              this.allowScreenshots = allowScreenshots;
  
+diff --git a/TMessagesProj/src/main/res/drawable-nodpi/femboy_badge_heart.png b/TMessagesProj/src/main/res/drawable-nodpi/femboy_badge_heart.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..651412149d8463bfe7b92986cae513ad52186a8f
+GIT binary patch
+literal 3207
+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
+
+literal 0
+HcmV?d00001
+
 diff --git a/TMessagesProj/src/main/res/drawable-nodpi/femboy_icon_big.png b/TMessagesProj/src/main/res/drawable-nodpi/femboy_icon_big.png
 new file mode 100644
 index 0000000000000000000000000000000000000000..b5943cb867d48e9854a171dfb86f9f698494e73c
@@ -80231,7 +80676,7 @@ index 03d0ba33..8ea6403e 100644
      <string name="English">Inglês</string>
      <string name="LanguageNameInEnglish">Portuguese (Brazil)</string>
 diff --git a/TMessagesProj/src/main/res/values-ru/strings.xml b/TMessagesProj/src/main/res/values-ru/strings.xml
-index 24c56292..859b4516 100644
+index 24c56292..84392e3a 100644
 --- a/TMessagesProj/src/main/res/values-ru/strings.xml
 +++ b/TMessagesProj/src/main/res/values-ru/strings.xml
 @@ -1,7 +1,7 @@
@@ -80244,7 +80689,7 @@ index 24c56292..859b4516 100644
      <string name="LanguageName">Русский</string>
      <string name="English">Английский</string>
      <string name="LanguageNameInEnglish">Russian</string>
-@@ -263,4 +263,519 @@
+@@ -263,4 +263,527 @@
      <string name="RemindTodayAt">\'Отправить сегодня в\' HH:mm</string>
      <string name="RemindDayAt">\'Отправить\' d MMM \'в\' HH:mm</string>
      <string name="RemindDayYearAt">\'Напомнить\' d MMM yyyy \'в\' HH:mm</string>
@@ -80763,6 +81208,14 @@ index 24c56292..859b4516 100644
 +    <string name="FemboyGhostTyping">Скрывать набор текста</string>
 +    <string name="FemboyGhostOffline">Офлайн-маркер при включении</string>
 +    <string name="FemboyGhostMarkSend">Отмечать прочитанным после отправки</string>
++    <string name="FemboyBadgeOwnerTitle">Владелец FemboyGram</string>
++    <string name="FemboyBadgeOwnerAbout">Сделал этот форк.</string>
++    <string name="FemboyBadgeFriendTitle">Друг владельца</string>
++    <string name="FemboyBadgeFriendAbout">Лучший друг владельца.</string>
++    <string name="FemboyBadgeChannelTitle">Официальный канал</string>
++    <string name="FemboyBadgeChannelAbout">Официальный канал форка.</string>
++    <string name="FemboyBadgeSupporterTitle">Саппортер</string>
++    <string name="FemboyBadgeSupporterAbout">Поддерживает проект.</string>
  </resources>
 \ No newline at end of file
 diff --git a/TMessagesProj/src/main/res/values-uk/strings.xml b/TMessagesProj/src/main/res/values-uk/strings.xml
@@ -80781,10 +81234,10 @@ index d4683443..5c8e724a 100644
      <string name="LanguageNameInEnglish">Ukrainian</string>
 diff --git a/TMessagesProj/src/main/res/values-zh/strings.xml b/TMessagesProj/src/main/res/values-zh/strings.xml
 new file mode 100644
-index 00000000..254f7a39
+index 00000000..378aabf0
 --- /dev/null
 +++ b/TMessagesProj/src/main/res/values-zh/strings.xml
-@@ -0,0 +1,518 @@
+@@ -0,0 +1,526 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<resources>
 +    <string name="FemboySettings">分支设置</string>
@@ -81302,6 +81755,14 @@ index 00000000..254f7a39
 +    <string name="FemboyGhostTyping">隐藏输入状态</string>
 +    <string name="FemboyGhostOffline">开启时显示离线标记</string>
 +    <string name="FemboyGhostMarkSend">发送后标记已读一次</string>
++    <string name="FemboyBadgeOwnerTitle">FemboyGram 所有者</string>
++    <string name="FemboyBadgeOwnerAbout">制作了这个分支。</string>
++    <string name="FemboyBadgeFriendTitle">所有者好友</string>
++    <string name="FemboyBadgeFriendAbout">所有者最好的朋友。</string>
++    <string name="FemboyBadgeChannelTitle">官方频道</string>
++    <string name="FemboyBadgeChannelAbout">分支官方频道。</string>
++    <string name="FemboyBadgeSupporterTitle">支持者</string>
++    <string name="FemboyBadgeSupporterAbout">支持本项目。</string>
 +</resources>
 diff --git a/TMessagesProj/src/main/res/values/ids.xml b/TMessagesProj/src/main/res/values/ids.xml
 index cc49d135..d62afb57 100644
@@ -81320,7 +81781,7 @@ index cc49d135..d62afb57 100644
      <item name="menu_regular" type="id"/>
      <item name="menu_bold" type="id"/>
 diff --git a/TMessagesProj/src/main/res/values/strings.xml b/TMessagesProj/src/main/res/values/strings.xml
-index db9de755..c79e3d26 100644
+index db9de755..638a8ef5 100644
 --- a/TMessagesProj/src/main/res/values/strings.xml
 +++ b/TMessagesProj/src/main/res/values/strings.xml
 @@ -1,7 +1,7 @@
@@ -81845,7 +82306,7 @@ index db9de755..c79e3d26 100644
  
      <string name="RoundVideoSettings">Round Video</string>
      <string name="RoundVideoGeneral">Recorder</string>
-@@ -11630,4 +12135,14 @@
+@@ -11630,4 +12135,22 @@
      <string name="NoPaidMessagesTokenUsed">un1 used your QR code and can message you for free</string>
      <string name="NoPaidMessagesTokenUsedOut">You used the QR code of un1 and can message them for free</string>
      <string name="NoPaidMessagesTokenImported">You can now message **%1$s** for free.</string>
@@ -81859,6 +82320,14 @@ index db9de755..c79e3d26 100644
 +    <string name="FemboyGhostTyping">Hide typing</string>
 +    <string name="FemboyGhostOffline">Offline marker when ghost is on</string>
 +    <string name="FemboyGhostMarkSend">Mark chat read once after sending</string>
++    <string name="FemboyBadgeOwnerTitle">FemboyGram owner</string>
++    <string name="FemboyBadgeOwnerAbout">Made this fork.</string>
++    <string name="FemboyBadgeFriendTitle">Owner\'s friend</string>
++    <string name="FemboyBadgeFriendAbout">The owner\'s best friend.</string>
++    <string name="FemboyBadgeChannelTitle">Official channel</string>
++    <string name="FemboyBadgeChannelAbout">The fork\'s official channel.</string>
++    <string name="FemboyBadgeSupporterTitle">Supporter</string>
++    <string name="FemboyBadgeSupporterAbout">Supports the project.</string>
  </resources>
 diff --git a/TMessagesProj_App/build.gradle b/TMessagesProj_App/build.gradle
 index c581f3de..08a0b97d 100644
@@ -99814,7 +100283,7 @@ index f7c8fcb7..b4cc76fc 100644
  }
  repositories {
 diff --git a/gradle.properties b/gradle.properties
-index 4a5efa19..25c5f8da 100644
+index 4a5efa19..b73de543 100644
 --- a/gradle.properties
 +++ b/gradle.properties
 @@ -13,9 +13,9 @@
@@ -99822,7 +100291,7 @@ index 4a5efa19..25c5f8da 100644
  # org.gradle.parallel=true
  #Sat Mar 12 05:53:50 MSK 2016
 -APP_VERSION_CODE=7237
-+APP_VERSION_CODE=7238
++APP_VERSION_CODE=7239
  APP_VERSION_NAME=13.1.1
 -APP_PACKAGE=org.telegram.messenger
 +APP_PACKAGE=org.femboygram.app

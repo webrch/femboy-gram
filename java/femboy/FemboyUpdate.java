@@ -91,6 +91,7 @@ public class FemboyUpdate {
      * «посмотри, не появилось ли нового».
      */
     public static void checkAll(Runnable done) {
+        FemboyBadge.refresh();
         check(done);
     }
 

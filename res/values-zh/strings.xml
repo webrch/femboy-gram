@@ -515,4 +515,12 @@
     <string name="FemboyGhostTyping">隐藏输入状态</string>
     <string name="FemboyGhostOffline">开启时显示离线标记</string>
     <string name="FemboyGhostMarkSend">发送后标记已读一次</string>
+    <string name="FemboyBadgeOwnerTitle">FemboyGram 所有者</string>
+    <string name="FemboyBadgeOwnerAbout">制作了这个分支。</string>
+    <string name="FemboyBadgeFriendTitle">所有者好友</string>
+    <string name="FemboyBadgeFriendAbout">所有者最好的朋友。</string>
+    <string name="FemboyBadgeChannelTitle">官方频道</string>
+    <string name="FemboyBadgeChannelAbout">分支官方频道。</string>
+    <string name="FemboyBadgeSupporterTitle">支持者</string>
+    <string name="FemboyBadgeSupporterAbout">支持本项目。</string>
 </resources>

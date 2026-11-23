@@ -1,7 +1,7 @@
 {
-  "version": "1.2",
-  "apk": "https://github.com/webrch/femboy-gram/releases/download/v1.2/FemboyGram-1.2.apk",
-  "about": "FemboyGram 1.2: badges with a heart glyph, pastel Material You themes, ghost mode, music player, plugins.",
-  "about_ru": "FemboyGram 1.2: бейджи с сердечком, пастельные темы Material You, режим призрака, плеер, плагины.",
-  "about_zh": "FemboyGram 1.2：爱心徽章、粉彩 Material You 主题、幽灵模式、音乐播放器、插件。"
+  "version": "1.2.1",
+  "apk": "https://github.com/webrch/femboy-gram/releases/download/v1.2.1/FemboyGram-1.2.1.apk",
+  "about": "FemboyGram 1.2.1: cleaner vector heart badge icons.",
+  "about_ru": "FemboyGram 1.2.1: аккуратные векторные иконки бейджей-сердечек.",
+  "about_zh": "FemboyGram 1.2.1：更清晰的矢量爱心徽章图标。"
 }

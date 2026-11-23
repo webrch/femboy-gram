@@ -10,7 +10,7 @@ FemboyGram собран из [DrKLO/Telegram](https://github.com/DrKLO/Telegram)
 
 ## Скачать
 
-**[FemboyGram 1.2 — APK](https://github.com/webrch/femboy-gram/releases/download/v1.2/FemboyGram-1.2.apk)**
+**[FemboyGram 1.2.1 — APK](https://github.com/webrch/femboy-gram/releases/download/v1.2.1/FemboyGram-1.2.1.apk)**
 
 Ставится рядом с обычным Telegram. Андроид 23+, только arm64.
 

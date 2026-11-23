@@ -58,6 +58,10 @@ public class FemboyUpdatesActivity extends UniversalFragment {
     private static final int ID_STICKERS = 1005;
     private static final int ID_SOURCE = 1006;
     private static final int ID_SOUND = 1007;
+    private static final int ID_DONATE = 1008;
+    private static final int ID_BADGE = 1009;
+    private static final int ID_VOICE = 1010;
+    private static final int ID_HIDDEN = 1011;
 
     @Override
     protected void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
@@ -73,6 +77,14 @@ public class FemboyUpdatesActivity extends UniversalFragment {
         items.add(FemboyRowCell.Factory.of(ID_FEEDBACK, R.drawable.femboy_ic_feedback, LocaleController.getString(R.string.FemboyFeedback), LocaleController.getString(R.string.FemboyFeedbackShort)));
         items.add(FemboyRowCell.Factory.of(ID_STICKERS, R.drawable.femboy_ic_sticky_note_2, LocaleController.getString(R.string.FemboyGramStickers), LocaleController.getString(R.string.FemboyStickersShort)));
         items.add(FemboyRowCell.Factory.of(ID_SOURCE, R.drawable.femboy_ic_code, LocaleController.getString(R.string.FemboySource), "github.com/webrch/femboy-gram"));
+        items.add(FemboyRowCell.Factory.of(ID_DONATE, R.drawable.femboy_ic_volunteer_activism,
+                LocaleController.getString(R.string.FemboyDonate), LocaleController.getString(R.string.FemboyDonateRow)));
+        items.add(FemboyRowCell.Factory.of(ID_BADGE, R.drawable.femboy_ic_star,
+                LocaleController.getString(R.string.FemboyBadgeBuyTitle), LocaleController.getString(R.string.FemboyBadgeBuyPrice)));
+        items.add(FemboyRowCell.Factory.of(ID_VOICE, R.drawable.femboy_ic_pets,
+                LocaleController.getString(R.string.FemboyVoiceTitle), LocaleController.getString(R.string.FemboyVoiceRow)));
+        items.add(FemboyRowCell.Factory.of(ID_HIDDEN, R.drawable.femboy_ic_visibility_off,
+                LocaleController.getString(R.string.FemboyHiddenTitle), LocaleController.getString(R.string.FemboyHiddenRow)));
         // «Звук» появляется, только когда мяуканье уже услышали
         if (FemboyConfig.meowHeard()) {
             items.add(FemboyRowCell.Factory.of(ID_SOUND, R.drawable.femboy_ic_pets, LocaleController.getString(R.string.FemboyChime), LocaleController.getString(R.string.FemboySoundInfo)));
@@ -106,6 +118,18 @@ public class FemboyUpdatesActivity extends UniversalFragment {
                 break;
             case ID_SOUND:
                 presentFragment(new FemboySoundActivity());
+                break;
+            case ID_DONATE:
+                presentFragment(new FemboyDonateActivity());
+                break;
+            case ID_BADGE:
+                presentFragment(new FemboyDonateActivity(true));
+                break;
+            case ID_VOICE:
+                presentFragment(new FemboyVoiceActivity());
+                break;
+            case ID_HIDDEN:
+                presentFragment(new FemboyHiddenChatsActivity());
                 break;
         }
     }

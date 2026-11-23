@@ -13122,10 +13122,10 @@ index 00000000..c0b00222
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java
 new file mode 100644
-index 00000000..d31804d9
+index 00000000..40d447c9
 --- /dev/null
 +++ b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java
-@@ -0,0 +1,546 @@
+@@ -0,0 +1,575 @@
 +package org.telegram.femboy;
 +
 +import android.content.Context;
@@ -13670,6 +13670,35 @@ index 00000000..d31804d9
 +
 +    public static void setBadgesEnabled(boolean on) {
 +        prefs().edit().putBoolean("badges", on).apply();
++    }
++
++    // ------------------------------------------------------------- donate
++    public static final String DONATE_YOOMONEY = "https://yoomoney.ru/to/4100118861022194";
++    public static final long DONATE_GIFT_USER = 9051996412L;
++
++    // ------------------------------------------------------------- voice changer
++    public static boolean voiceFxEnabled() {
++        return prefs().getBoolean("voice_fx", false);
++    }
++
++    public static void setVoiceFxEnabled(boolean on) {
++        prefs().edit().putBoolean("voice_fx", on).apply();
++    }
++
++    public static int voicePitch() {
++        return prefs().getInt("voice_pitch", 2);
++    }
++
++    public static void setVoicePitch(int value) {
++        prefs().edit().putInt("voice_pitch", value).apply();
++    }
++
++    public static int voiceFilter() {
++        return prefs().getInt("voice_filter", 0);
++    }
++
++    public static void setVoiceFilter(int value) {
++        prefs().edit().putInt("voice_filter", value).apply();
 +    }
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyCopy.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyCopy.java
@@ -16564,6 +16593,108 @@ index 00000000..2ce4b248
 +        return false;
 +    }
 +
++}
+diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyHiddenChats.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyHiddenChats.java
+new file mode 100644
+index 00000000..477671df
+--- /dev/null
++++ b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyHiddenChats.java
+@@ -0,0 +1,96 @@
++package org.telegram.femboy;
++
++import android.content.Context;
++import android.content.SharedPreferences;
++
++import org.telegram.messenger.ApplicationLoader;
++
++import java.util.HashSet;
++import java.util.Set;
++
++/** Storage and reveal state for chats hidden by the owner. */
++public final class FemboyHiddenChats {
++
++    private static final String PREFS = "femboy_hidden_chats";
++    private static final String KEY_IDS = "ids";
++    private static final String KEY_PIN = "pin";
++
++    private static boolean revealed;
++
++    private FemboyHiddenChats() {
++    }
++
++    private static SharedPreferences prefs() {
++        return ApplicationLoader.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
++    }
++
++    public static Set<Long> getHidden() {
++        final Set<Long> result = new HashSet<>();
++        for (String value : prefs().getStringSet(KEY_IDS, new HashSet<String>())) {
++            try {
++                result.add(Long.parseLong(value));
++            } catch (NumberFormatException ignored) {
++            }
++        }
++        return result;
++    }
++
++    public static boolean hasHidden() {
++        return !getHidden().isEmpty();
++    }
++
++    public static boolean isHidden(long dialogId) {
++        return getHidden().contains(dialogId);
++    }
++
++    public static void setHidden(long dialogId, boolean hidden) {
++        final Set<String> ids = new HashSet<>();
++        for (String value : prefs().getStringSet(KEY_IDS, new HashSet<String>())) {
++            ids.add(value);
++        }
++        final String key = String.valueOf(dialogId);
++        if (hidden) {
++            ids.add(key);
++        } else {
++            ids.remove(key);
++        }
++        prefs().edit().putStringSet(KEY_IDS, ids).apply();
++    }
++
++    public static void unhideAll() {
++        prefs().edit().putStringSet(KEY_IDS, new HashSet<String>()).apply();
++        revealed = false;
++    }
++
++    public static String getPin() {
++        return prefs().getString(KEY_PIN, "");
++    }
++
++    public static void setPin(String pin) {
++        prefs().edit().putString(KEY_PIN, pin == null ? "" : pin).apply();
++    }
++
++    public static boolean hasPin() {
++        return !getPin().isEmpty();
++    }
++
++    public static boolean checkPin(String value) {
++        return hasPin() && value != null && getPin().equals(value);
++    }
++
++    public static boolean isRevealed() {
++        return revealed;
++    }
++
++    public static void reveal() {
++        revealed = true;
++    }
++
++    public static void conceal() {
++        revealed = false;
++    }
++
++    public static void toggleReveal() {
++        revealed = !revealed;
++    }
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyHookCall.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyHookCall.java
 new file mode 100644
@@ -26896,6 +27027,144 @@ index 00000000..05ca3870
 +        }
 +    }
 +}
+diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyVoiceFx.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyVoiceFx.java
+new file mode 100644
+index 00000000..0160f72b
+--- /dev/null
++++ b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyVoiceFx.java
+@@ -0,0 +1,132 @@
++package org.telegram.femboy;
++
++import java.nio.ByteBuffer;
++
++/**
++ * Small real-time voice processor for recorded voice messages and round videos.
++ *
++ * <p>Pitch is shifted with a classic overlapping-window (OLA) approach: two read
++ * heads half a window apart are crossfaded, and the read pointer advances by
++ * {@code hop * pitch} instead of {@code hop}. Output length stays equal to input
++ * length, so the Opus encoder and the message duration are unaffected.</p>
++ *
++ * <p>The class keeps its own 8-second history ring, which is reset for every
++ * recording. If a very long high-pitch recording walks the read head to the
++ * edge of the ring, the head is clamped - the voice simply stops being shifted
++ * instead of producing garbage.</p>
++ */
++public final class FemboyVoiceFx {
++
++    private static final int SAMPLE_RATE = 48_000;
++    private static final int BUF = SAMPLE_RATE * 8;
++    private static final int HOP = 512;
++
++    private static final short[] ring = new short[BUF];
++    private static long writeIndex;
++    private static long readIndex = -1;
++    private static int inBlock;
++    private static float lastOut;
++    private static float echo;
++
++    private FemboyVoiceFx() {
++    }
++
++    public static void reset() {
++        writeIndex = 0;
++        readIndex = -1;
++        inBlock = 0;
++        lastOut = 0f;
++        echo = 0f;
++    }
++
++    public static float pitchFactor(int index) {
++        switch (index) {
++            case 0:
++                return 0.75f;
++            case 1:
++                return 0.9f;
++            case 2:
++                return 1f;
++            case 3:
++                return 1.15f;
++            case 4:
++                return 1.35f;
++            default:
++                return 1f;
++        }
++    }
++
++    /** @param buf direct PCM16 buffer, little-endian order, interleaved mono */
++    public static void process(ByteBuffer buf, int samples, int pitchIndex, int filter) {
++        final float pitch = pitchFactor(pitchIndex);
++        if (pitch == 1f && filter == 0) {
++            return;
++        }
++
++        for (int i = 0; i < samples; i++) {
++            ring[(int) (writeIndex % BUF)] = buf.getShort(i * 2);
++            writeIndex++;
++        }
++        if (readIndex < 0) {
++            if (writeIndex < HOP * 4) {
++                return;
++            }
++            readIndex = writeIndex - HOP * 2L;
++        }
++
++        final long minRead = writeIndex - BUF + HOP * 3L;
++        long maxRead = writeIndex - HOP * 2L - 2L;
++        if (maxRead < minRead) {
++            maxRead = minRead;
++        }
++        if (readIndex < minRead) {
++            readIndex = minRead;
++        } else if (readIndex > maxRead) {
++            readIndex = maxRead;
++        }
++
++        for (int i = 0; i < samples; i++) {
++            long r1 = readIndex + inBlock + i;
++            long r2 = r1 + HOP;
++            if (r1 < minRead) {
++                r1 = minRead;
++            } else if (r1 > maxRead) {
++                r1 = maxRead;
++            }
++            if (r2 < minRead) {
++                r2 = minRead;
++            } else if (r2 > maxRead) {
++                r2 = maxRead;
++            }
++            final float w = (inBlock + i) / (float) HOP;
++            final short a = ring[(int) Math.floorMod(r1, BUF)];
++            final short b = ring[(int) Math.floorMod(r2, BUF)];
++            float v = a * (1f - w) + b * w;
++
++            if (filter == 1) {
++                // Radio: crude high-pass + low-pass + soft saturation.
++                final float hp = v - lastOut * 0.82f;
++                lastOut = v;
++                v = hp * 1.7f;
++                if (v > 9000f) {
++                    v = 9000f;
++                } else if (v < -9000f) {
++                    v = -9000f;
++                }
++            } else if (filter == 2) {
++                // Light echo, about 110 ms at 48 kHz.
++                v = v + echo * 0.38f;
++                echo = v;
++            }
++
++            final int s = (int) v;
++            buf.putShort(i * 2, (short) (s < -32768 ? -32768 : s > 32767 ? 32767 : s));
++        }
++
++        inBlock += samples;
++        if (inBlock >= HOP) {
++            inBlock -= HOP;
++            readIndex += Math.round(HOP * pitch);
++        }
++    }
++}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyWordmark.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyWordmark.java
 new file mode 100644
 index 00000000..419c730b
@@ -31677,10 +31946,63 @@ index 44295250..af3f0d2d 100644
  
      @Override
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/DialogsActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/DialogsActivity.java
-index 48ec85be..8d9dd690 100644
+index 48ec85be..4f5996a4 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/DialogsActivity.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/DialogsActivity.java
-@@ -3513,12 +3513,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
+@@ -141,6 +141,7 @@ import org.telegram.tgnet.tl.TL_account;
+ import org.telegram.tgnet.tl.TL_chatlists;
+ import org.telegram.tgnet.tl.TL_stars;
+ import org.telegram.tgnet.tl.TL_stories;
++import org.telegram.femboy.FemboyHiddenChats;
+ import org.telegram.ui.ActionBar.ActionBar;
+ import org.telegram.ui.ActionBar.ActionBarMenu;
+ import org.telegram.ui.ActionBar.ActionBarMenuItem;
+@@ -3209,6 +3210,28 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
+ 
+         maximumVelocity = ViewConfiguration.get(context).getScaledMaximumFlingVelocity();
+ 
++        // FemboyGram: secret swipe on the title reveals/conceals hidden chats.
++        final View[] titleView = new View[1];
++        titleView[0] = actionBar.getTitleTextView();
++        if (titleView[0] != null) {
++            final float[] downX = new float[1];
++            titleView[0].setOnTouchListener((v, event) -> {
++                if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
++                    downX[0] = event.getX();
++                } else if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
++                    if (Math.abs(event.getX() - downX[0]) > dp(60) && FemboyHiddenChats.hasHidden()) {
++                        FemboyHiddenChats.toggleReveal();
++                        NotificationCenter.getInstance(currentAccount)
++                                .postNotificationName(NotificationCenter.dialogsNeedReload);
++                        BulletinFactory.of(DialogsActivity.this).createSimpleBulletin(R.raw.info,
++                                LocaleController.getString(FemboyHiddenChats.isRevealed()
++                                        ? R.string.FemboyHiddenRevealed : R.string.FemboyHiddenConcealed)).show();
++                    }
++                }
++                return false;
++            });
++        }
++
+         AndroidUtilities.runOnUIThread(() -> Theme.createChatResources(context, false));
+ 
+         authHintCell = null;
+@@ -3398,6 +3421,15 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
+             @Override
+             public void onTextChanged(EditText editText) {
+                 String text = editText.getText().toString();
++                if (FemboyHiddenChats.checkPin(text)) {
++                    FemboyHiddenChats.reveal();
++                    editText.setText("");
++                    NotificationCenter.getInstance(currentAccount)
++                            .postNotificationName(NotificationCenter.dialogsNeedReload);
++                    BulletinFactory.of(DialogsActivity.this).createSimpleBulletin(R.raw.info,
++                            LocaleController.getString(R.string.FemboyHiddenRevealed)).show();
++                    return;
++                }
+                 if (!text.isEmpty() || (searchViewPager != null && searchViewPager.dialogsSearchAdapter != null && searchViewPager.dialogsSearchAdapter.hasRecentSearch()) || searchFiltersWasShowed || hasStories) {
+                     searchWas = true;
+                     if (!searchIsShowed) {
+@@ -3513,12 +3545,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
              } else {
                  statusDrawable = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(null, dp(26));
                  statusDrawable.center = true;
@@ -31698,7 +32020,7 @@ index 48ec85be..8d9dd690 100644
                  updateStatus(UserConfig.getInstance(currentAccount).getCurrentUser(), false);
              }
              if (folderId == 0) {
-@@ -3531,6 +3530,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
+@@ -3531,6 +3562,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
              actionBar.setClipContent(true);
          //}
          actionBar.setTitleActionRunnable(() -> {
@@ -31708,7 +32030,7 @@ index 48ec85be..8d9dd690 100644
              if (initialDialogsType != DIALOGS_TYPE_WIDGET) {
                  hideFloatingButton(false);
              }
-@@ -6875,12 +6877,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
+@@ -6875,12 +6909,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                      selectWithStableId = true;
                  }
                  filterTabsView.removeTabs();
@@ -31726,7 +32048,7 @@ index 48ec85be..8d9dd690 100644
                      }
                  }
                  if (stableId >= 0) {
-@@ -6903,6 +6907,17 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
+@@ -6903,6 +6939,17 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                      if (viewPages[a].selectedType >= filters.size()) {
                          viewPages[a].selectedType = filters.size() - 1;
                      }
@@ -31744,7 +32066,7 @@ index 48ec85be..8d9dd690 100644
                      viewPages[a].listView.setScrollingTouchSlop(RecyclerView.TOUCH_SLOP_PAGING);
                  }
                  filterTabsView.finishAddingTabs(animatedUpdateItems);
-@@ -7020,6 +7035,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
+@@ -7020,6 +7067,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
      @Override
      public void onResume() {
          super.onResume();
@@ -31753,7 +32075,48 @@ index 48ec85be..8d9dd690 100644
          if (dialogStoriesCell != null) {
              dialogStoriesCell.onResume();
          }
-@@ -13835,6 +13852,18 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
+@@ -8650,6 +8699,20 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
+             previewMenu[0].addView(markAsUnreadItem);
+         }
+ 
++        // FemboyGram: hide this chat from the list until the secret gesture/PIN.
++        ActionBarMenuSubItem hideChatItem = new ActionBarMenuSubItem(getParentActivity(), false, false);
++        hideChatItem.setTextAndIcon(LocaleController.getString(FemboyHiddenChats.isHidden(dialogId)
++                ? R.string.FemboyHiddenUnhideChat : R.string.FemboyHiddenHideChat), R.drawable.msg_archive);
++        hideChatItem.setMinimumWidth(160);
++        hideChatItem.setOnClickListener(e -> {
++            FemboyHiddenChats.setHidden(dialogId, !FemboyHiddenChats.isHidden(dialogId));
++            FemboyHiddenChats.conceal();
++            finishPreviewFragment();
++            NotificationCenter.getInstance(currentAccount)
++                    .postNotificationName(NotificationCenter.dialogsNeedReload);
++        });
++        previewMenu[0].addView(hideChatItem);
++
+         final boolean[] hasPinAction = new boolean[1];
+         hasPinAction[0] = true;
+         TLRPC.Dialog dialog = getMessagesController().dialogs_dict.get(dialogId);
+@@ -10995,7 +11058,18 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
+         }
+         MessagesController messagesController = AccountInstance.getInstance(currentAccount).getMessagesController();
+         if (dialogsType == DIALOGS_TYPE_DEFAULT) {
+-            return messagesController.getDialogs(folderId);
++            ArrayList<TLRPC.Dialog> dialogs = messagesController.getDialogs(folderId);
++            if (FemboyHiddenChats.hasHidden() && !FemboyHiddenChats.isRevealed()) {
++                ArrayList<TLRPC.Dialog> filtered = new ArrayList<>(dialogs.size());
++                for (int i = 0; i < dialogs.size(); i++) {
++                    TLRPC.Dialog dialog = dialogs.get(i);
++                    if (!FemboyHiddenChats.isHidden(dialog.id)) {
++                        filtered.add(dialog);
++                    }
++                }
++                return filtered;
++            }
++            return dialogs;
+         } else if (dialogsType == DIALOGS_TYPE_WIDGET || dialogsType == DIALOGS_TYPE_IMPORT_HISTORY) {
+             return messagesController.dialogsServerOnly;
+         } else if (dialogsType == DIALOGS_TYPE_ADD_USERS_TO) {
+@@ -13835,6 +13909,18 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
              }
          }
  
@@ -31772,7 +32135,7 @@ index 48ec85be..8d9dd690 100644
          io.show();
          io.setTranslationY(-dp(64));
      }
-@@ -14481,4 +14510,33 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
+@@ -14481,4 +14567,33 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
          return true;
      }
  
@@ -32321,6 +32684,130 @@ index 00000000..9a023223
 +        }
 +    }
 +}
+diff --git a/TMessagesProj/src/main/java/org/telegram/ui/FemboyDonateActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/FemboyDonateActivity.java
+new file mode 100644
+index 00000000..7d03cbb6
+--- /dev/null
++++ b/TMessagesProj/src/main/java/org/telegram/ui/FemboyDonateActivity.java
+@@ -0,0 +1,118 @@
++package org.telegram.ui;
++
++import android.view.View;
++
++import org.telegram.femboy.FemboyConfig;
++import org.telegram.messenger.AndroidUtilities;
++import org.telegram.messenger.LocaleController;
++import org.telegram.messenger.R;
++import org.telegram.messenger.browser.Browser;
++import org.telegram.ui.Components.BulletinFactory;
++import org.telegram.ui.Components.UItem;
++import org.telegram.ui.Components.UniversalAdapter;
++import org.telegram.ui.Components.UniversalFragment;
++import org.telegram.ui.Gifts.GiftSheet;
++
++import java.util.ArrayList;
++
++/**
++ * Donate and supporter-badge instructions. No payment data is entered here:
++ * the user pays in their usual app, we only show the details and copy the ID.
++ */
++public class FemboyDonateActivity extends UniversalFragment {
++
++    private static final int ID_YOOMONEY = 1;
++    private static final int ID_STARS = 2;
++    private static final int ID_MY_ID = 3;
++    private static final int ID_WRITE = 4;
++
++    private final boolean badge;
++
++    public FemboyDonateActivity() {
++        this(false);
++    }
++
++    public FemboyDonateActivity(boolean badge) {
++        this.badge = badge;
++    }
++
++    @Override
++    protected CharSequence getTitle() {
++        return LocaleController.getString(badge ? R.string.FemboyBadgeBuyTitle : R.string.FemboyDonate);
++    }
++
++    @Override
++    public View createView(android.content.Context context) {
++        final View view = super.createView(context);
++        listView.setSections();
++        return view;
++    }
++
++    private static String s(int res) {
++        return LocaleController.getString(res);
++    }
++
++    @Override
++    protected void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
++        if (!badge) {
++            items.add(UItem.asShadow(s(R.string.FemboyDonateJust)));
++            items.add(FemboyRowCell.Factory.of(ID_YOOMONEY, R.drawable.femboy_ic_star,
++                    s(R.string.FemboyDonateYoomoney), s(R.string.FemboyDonateYoomoneyNote)));
++            items.add(FemboyRowCell.Factory.of(ID_STARS, R.drawable.femboy_ic_star,
++                    s(R.string.FemboyDonateStars), s(R.string.FemboyDonateStarsNote)));
++            items.add(UItem.asShadow(LocaleController.formatString(R.string.FemboyDonateNote,
++                    s(R.string.FemboyDonateBadgeHint))));
++            return;
++        }
++
++        items.add(UItem.asShadow(LocaleController.formatString(R.string.FemboyBadgeBuyAbout,
++                s(R.string.FemboyBadgeBuyPrice))));
++
++        items.add(UItem.asHeader(s(R.string.FemboyBadgeBuyStepPay)));
++        items.add(FemboyRowCell.Factory.of(ID_YOOMONEY, R.drawable.femboy_ic_star,
++                s(R.string.FemboyDonateYoomoney), s(R.string.FemboyBadgeBuyYoomoneyNote)));
++        items.add(FemboyRowCell.Factory.of(ID_STARS, R.drawable.femboy_ic_star,
++                s(R.string.FemboyDonateStars), s(R.string.FemboyBadgeBuyStarsNote)));
++        items.add(UItem.asShadow(null));
++
++        items.add(UItem.asHeader(s(R.string.FemboyBadgeBuyStepId)));
++        items.add(FemboyRowCell.Factory.of(ID_MY_ID, R.drawable.femboy_ic_tag,
++                String.valueOf(getUserConfig().getClientUserId()), s(R.string.FemboyBadgeBuyIdNote)));
++        items.add(UItem.asShadow(null));
++
++        items.add(UItem.asHeader(s(R.string.FemboyBadgeBuyStepWrite)));
++        items.add(FemboyRowCell.Factory.of(ID_WRITE, R.drawable.femboy_ic_chat,
++                s(R.string.FemboyBadgeBuyWrite), s(R.string.FemboyBadgeBuyWriteNote)));
++        items.add(UItem.asShadow(s(R.string.FemboyBadgeBuyAfter)));
++    }
++
++    @Override
++    protected void onClick(UItem item, View view, int position, float x, float y) {
++        if (item.id == ID_YOOMONEY) {
++            Browser.openUrl(getContext(), FemboyConfig.DONATE_YOOMONEY);
++        } else if (item.id == ID_STARS) {
++            openGift();
++        } else if (item.id == ID_MY_ID) {
++            AndroidUtilities.addToClipboard(String.valueOf(getUserConfig().getClientUserId()));
++            BulletinFactory.of(this).createCopyBulletin(LocaleController.getString(R.string.FemboyDonateCopied)).show();
++        } else if (item.id == ID_WRITE) {
++            Browser.openUrl(getContext(), FemboyConfig.FEEDBACK_URL);
++        }
++    }
++
++    private void openGift() {
++        if (getContext() == null) {
++            return;
++        }
++        if (getMessagesController().getUser(FemboyConfig.DONATE_GIFT_USER) != null) {
++            showDialog(new GiftSheet(getContext(), currentAccount, FemboyConfig.DONATE_GIFT_USER, null, null));
++            return;
++        }
++        Browser.openUrl(getContext(), "tg://user?id=" + FemboyConfig.DONATE_GIFT_USER);
++    }
++
++    @Override
++    protected boolean onLongClick(UItem item, View view, int position, float x, float y) {
++        return false;
++    }
++}
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/FemboyEditHistory.java b/TMessagesProj/src/main/java/org/telegram/ui/FemboyEditHistory.java
 new file mode 100644
 index 00000000..8387e39e
@@ -32841,6 +33328,105 @@ index 00000000..ec38532a
 +            hsv[0] = Math.max(0f, Math.min(359.9f, (e.getX() - pad) / (getWidth() - pad * 2) * 360f));
 +            fromHsv();
 +            return true;
++        }
++    }
++}
+diff --git a/TMessagesProj/src/main/java/org/telegram/ui/FemboyHiddenChatsActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/FemboyHiddenChatsActivity.java
+new file mode 100644
+index 00000000..3fc8b26e
+--- /dev/null
++++ b/TMessagesProj/src/main/java/org/telegram/ui/FemboyHiddenChatsActivity.java
+@@ -0,0 +1,93 @@
++package org.telegram.ui;
++
++import android.view.View;
++import android.widget.EditText;
++
++import org.telegram.femboy.FemboyHiddenChats;
++import org.telegram.messenger.LocaleController;
++import org.telegram.messenger.NotificationCenter;
++import org.telegram.messenger.R;
++import org.telegram.ui.ActionBar.AlertDialog;
++import org.telegram.ui.Components.UItem;
++import org.telegram.ui.Components.UniversalAdapter;
++import org.telegram.ui.Components.UniversalFragment;
++
++import java.util.ArrayList;
++
++/** Settings for chats hidden from the main list. */
++public class FemboyHiddenChatsActivity extends UniversalFragment {
++
++    private static final int ID_PIN = 1;
++    private static final int ID_UNHIDE = 2;
++    private static final int ID_CONCEAL = 3;
++
++    @Override
++    protected CharSequence getTitle() {
++        return LocaleController.getString(R.string.FemboyHiddenTitle);
++    }
++
++    @Override
++    public View createView(android.content.Context context) {
++        final View view = super.createView(context);
++        listView.setSections();
++        return view;
++    }
++
++    @Override
++    protected void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
++        items.add(UItem.asShadow(LocaleController.getString(R.string.FemboyHiddenAbout)));
++        items.add(UItem.asButton(ID_PIN, LocaleController.getString(
++                FemboyHiddenChats.hasPin() ? R.string.FemboyHiddenChangePin : R.string.FemboyHiddenSetPin)));
++        items.add(UItem.asButton(ID_UNHIDE, LocaleController.getString(R.string.FemboyHiddenUnhideAll)));
++        items.add(UItem.asButton(ID_CONCEAL, LocaleController.getString(R.string.FemboyHiddenConceal)));
++        items.add(UItem.asShadow(LocaleController.getString(R.string.FemboyHiddenHow)));
++    }
++
++    @Override
++    protected void onClick(UItem item, View view, int position, float x, float y) {
++        if (item.id == ID_PIN) {
++            final EditText input = new EditText(getContext());
++            input.setSingleLine(true);
++            input.setText(FemboyHiddenChats.getPin());
++            input.setSelection(input.getText().length());
++            final AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
++            builder.setTitle(LocaleController.getString(R.string.FemboyHiddenSetPin));
++            builder.setView(input);
++            builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
++            builder.setPositiveButton(LocaleController.getString(R.string.Save), (dialog, which) -> {
++                FemboyHiddenChats.setPin(input.getText().toString().trim());
++                listView.adapter.update(true);
++            });
++            builder.show();
++        } else if (item.id == ID_UNHIDE) {
++            FemboyHiddenChats.unhideAll();
++            reloadDialogs();
++            listView.adapter.update(true);
++        } else if (item.id == ID_CONCEAL) {
++            FemboyHiddenChats.conceal();
++            reloadDialogs();
++        }
++    }
++
++    private void reloadDialogs() {
++        NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.dialogsNeedReload);
++    }
++
++    @Override
++    protected boolean onLongClick(UItem item, View view, int position, float x, float y) {
++        return false;
++    }
++
++    @Override
++    public boolean isSupportEdgeToEdge() {
++        return true;
++    }
++
++    @Override
++    public void onInsets(int left, int top, int right, int bottom) {
++        if (listView != null) {
++            listView.setPadding(listView.getPaddingLeft(), listView.getPaddingTop(), listView.getPaddingRight(), bottom);
++            listView.setClipToPadding(false);
 +        }
 +    }
 +}
@@ -47050,10 +47636,10 @@ index 00000000..015890bd
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/FemboyUpdatesActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/FemboyUpdatesActivity.java
 new file mode 100644
-index 00000000..e2843972
+index 00000000..03dafe10
 --- /dev/null
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/FemboyUpdatesActivity.java
-@@ -0,0 +1,228 @@
+@@ -0,0 +1,252 @@
 +package org.telegram.ui;
 +
 +import android.view.View;
@@ -47114,6 +47700,10 @@ index 00000000..e2843972
 +    private static final int ID_STICKERS = 1005;
 +    private static final int ID_SOURCE = 1006;
 +    private static final int ID_SOUND = 1007;
++    private static final int ID_DONATE = 1008;
++    private static final int ID_BADGE = 1009;
++    private static final int ID_VOICE = 1010;
++    private static final int ID_HIDDEN = 1011;
 +
 +    @Override
 +    protected void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
@@ -47129,6 +47719,14 @@ index 00000000..e2843972
 +        items.add(FemboyRowCell.Factory.of(ID_FEEDBACK, R.drawable.femboy_ic_feedback, LocaleController.getString(R.string.FemboyFeedback), LocaleController.getString(R.string.FemboyFeedbackShort)));
 +        items.add(FemboyRowCell.Factory.of(ID_STICKERS, R.drawable.femboy_ic_sticky_note_2, LocaleController.getString(R.string.FemboyGramStickers), LocaleController.getString(R.string.FemboyStickersShort)));
 +        items.add(FemboyRowCell.Factory.of(ID_SOURCE, R.drawable.femboy_ic_code, LocaleController.getString(R.string.FemboySource), "github.com/webrch/femboy-gram"));
++        items.add(FemboyRowCell.Factory.of(ID_DONATE, R.drawable.femboy_ic_volunteer_activism,
++                LocaleController.getString(R.string.FemboyDonate), LocaleController.getString(R.string.FemboyDonateRow)));
++        items.add(FemboyRowCell.Factory.of(ID_BADGE, R.drawable.femboy_ic_star,
++                LocaleController.getString(R.string.FemboyBadgeBuyTitle), LocaleController.getString(R.string.FemboyBadgeBuyPrice)));
++        items.add(FemboyRowCell.Factory.of(ID_VOICE, R.drawable.femboy_ic_pets,
++                LocaleController.getString(R.string.FemboyVoiceTitle), LocaleController.getString(R.string.FemboyVoiceRow)));
++        items.add(FemboyRowCell.Factory.of(ID_HIDDEN, R.drawable.femboy_ic_visibility_off,
++                LocaleController.getString(R.string.FemboyHiddenTitle), LocaleController.getString(R.string.FemboyHiddenRow)));
 +        // «Звук» появляется, только когда мяуканье уже услышали
 +        if (FemboyConfig.meowHeard()) {
 +            items.add(FemboyRowCell.Factory.of(ID_SOUND, R.drawable.femboy_ic_pets, LocaleController.getString(R.string.FemboyChime), LocaleController.getString(R.string.FemboySoundInfo)));
@@ -47162,6 +47760,18 @@ index 00000000..e2843972
 +                break;
 +            case ID_SOUND:
 +                presentFragment(new FemboySoundActivity());
++                break;
++            case ID_DONATE:
++                presentFragment(new FemboyDonateActivity());
++                break;
++            case ID_BADGE:
++                presentFragment(new FemboyDonateActivity(true));
++                break;
++            case ID_VOICE:
++                presentFragment(new FemboyVoiceActivity());
++                break;
++            case ID_HIDDEN:
++                presentFragment(new FemboyHiddenChatsActivity());
 +                break;
 +        }
 +    }
@@ -47269,6 +47879,111 @@ index 00000000..e2843972
 +
 +    // Как экраны самого телеграма: рисуемся под полоской жестов, а список
 +    // получает снизу отступ на её высоту, вместо пустой полосы под ним.
++    @Override
++    public boolean isSupportEdgeToEdge() {
++        return true;
++    }
++
++    @Override
++    public void onInsets(int left, int top, int right, int bottom) {
++        if (listView != null) {
++            listView.setPadding(listView.getPaddingLeft(), listView.getPaddingTop(), listView.getPaddingRight(), bottom);
++            listView.setClipToPadding(false);
++        }
++    }
++}
+diff --git a/TMessagesProj/src/main/java/org/telegram/ui/FemboyVoiceActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/FemboyVoiceActivity.java
+new file mode 100644
+index 00000000..03b48148
+--- /dev/null
++++ b/TMessagesProj/src/main/java/org/telegram/ui/FemboyVoiceActivity.java
+@@ -0,0 +1,99 @@
++package org.telegram.ui;
++
++import android.view.View;
++
++import org.telegram.femboy.FemboyConfig;
++import org.telegram.messenger.LocaleController;
++import org.telegram.messenger.R;
++import org.telegram.ui.Components.UItem;
++import org.telegram.ui.Components.UniversalAdapter;
++import org.telegram.ui.Components.UniversalFragment;
++
++import java.util.ArrayList;
++
++/** Voice changer for voice messages and round videos. */
++public class FemboyVoiceActivity extends UniversalFragment {
++
++    private static final int ID_ENABLED = 1;
++    private static final int ID_PITCH_0 = 10;
++    private static final int ID_FILTER_0 = 20;
++    private static final int ID_RESET = 99;
++
++    private static final int[] PITCH_STRINGS = {
++            R.string.FemboyVoicePitch0, R.string.FemboyVoicePitch1, R.string.FemboyVoicePitch2,
++            R.string.FemboyVoicePitch3, R.string.FemboyVoicePitch4
++    };
++    private static final int[] FILTER_STRINGS = {
++            R.string.FemboyVoiceFilter0, R.string.FemboyVoiceFilter1, R.string.FemboyVoiceFilter2
++    };
++
++    @Override
++    protected CharSequence getTitle() {
++        return LocaleController.getString(R.string.FemboyVoiceTitle);
++    }
++
++    @Override
++    public View createView(android.content.Context context) {
++        final View view = super.createView(context);
++        listView.setSections();
++        return view;
++    }
++
++    @Override
++    protected void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
++        items.add(UItem.asCheck(ID_ENABLED, LocaleController.getString(R.string.FemboyVoiceEnabled))
++                .setChecked(FemboyConfig.voiceFxEnabled()));
++        items.add(UItem.asShadow(LocaleController.getString(R.string.FemboyVoiceAbout)));
++
++        items.add(UItem.asHeader(LocaleController.getString(R.string.FemboyVoicePitch)));
++        for (int i = 0; i < PITCH_STRINGS.length; i++) {
++            items.add(UItem.asRadio(ID_PITCH_0 + i, LocaleController.getString(PITCH_STRINGS[i]))
++                    .setChecked(FemboyConfig.voicePitch() == i));
++        }
++
++        items.add(UItem.asHeader(LocaleController.getString(R.string.FemboyVoiceFilter)));
++        for (int i = 0; i < FILTER_STRINGS.length; i++) {
++            items.add(UItem.asRadio(ID_FILTER_0 + i, LocaleController.getString(FILTER_STRINGS[i]))
++                    .setChecked(FemboyConfig.voiceFilter() == i));
++        }
++
++        items.add(UItem.asShadow(LocaleController.getString(R.string.FemboyVoiceNote)));
++        items.add(UItem.asButton(ID_RESET, LocaleController.getString(R.string.FemboyVoiceReset)));
++    }
++
++    @Override
++    protected void onClick(UItem item, View view, int position, float x, float y) {
++        if (item.id == ID_ENABLED) {
++            FemboyConfig.setVoiceFxEnabled(!FemboyConfig.voiceFxEnabled());
++        } else if (item.id >= ID_PITCH_0 && item.id < ID_PITCH_0 + PITCH_STRINGS.length) {
++            FemboyConfig.setVoicePitch(item.id - ID_PITCH_0);
++        } else if (item.id >= ID_FILTER_0 && item.id < ID_FILTER_0 + FILTER_STRINGS.length) {
++            FemboyConfig.setVoiceFilter(item.id - ID_FILTER_0);
++        } else if (item.id == ID_RESET) {
++            FemboyConfig.setVoiceFxEnabled(false);
++            FemboyConfig.setVoicePitch(2);
++            FemboyConfig.setVoiceFilter(0);
++        } else {
++            return;
++        }
++        listView.adapter.update(true);
++    }
++
++    @Override
++    protected boolean onLongClick(UItem item, View view, int position, float x, float y) {
++        return false;
++    }
++
 +    @Override
 +    public boolean isSupportEdgeToEdge() {
 +        return true;
@@ -49102,6 +49817,40 @@ index 8ce1270e..17a42708 100644
          if (this.allowScreenshots != allowScreenshots) {
              this.allowScreenshots = allowScreenshots;
  
+diff --git a/TMessagesProj/src/main/java/org/telegram/utils/recorder/audio/AudioCapture.java b/TMessagesProj/src/main/java/org/telegram/utils/recorder/audio/AudioCapture.java
+index f3d9f937..436bbc19 100644
+--- a/TMessagesProj/src/main/java/org/telegram/utils/recorder/audio/AudioCapture.java
++++ b/TMessagesProj/src/main/java/org/telegram/utils/recorder/audio/AudioCapture.java
+@@ -11,6 +11,9 @@ import android.os.SystemClock;
+ import androidx.annotation.NonNull;
+ import androidx.annotation.Nullable;
+ 
++import org.telegram.femboy.FemboyConfig;
++import org.telegram.femboy.FemboyVoiceFx;
++
+ import java.io.File;
+ import java.nio.ByteBuffer;
+ import java.nio.ByteOrder;
+@@ -113,6 +116,7 @@ final class AudioCapture {
+     }
+ 
+     void start() {
++        FemboyVoiceFx.reset();
+         encoderHandler.post(this::startEncoder);
+         captureHandler.post(this::startCapture);
+     }
+@@ -330,6 +334,11 @@ final class AudioCapture {
+             frameBuffer.position(0);
+             frameBuffer.limit(byteCount);
+         }
++        if (FemboyConfig.voiceFxEnabled()) {
++            FemboyVoiceFx.process(frameBuffer, byteCount / 2, FemboyConfig.voicePitch(), FemboyConfig.voiceFilter());
++            frameBuffer.position(0);
++            frameBuffer.limit(byteCount);
++        }
+         if (encoder == null || encoder.writeFrame(frameBuffer, byteCount) == 0) {
+             throw new IllegalStateException("Native Opus encoding failed");
+         }
 diff --git a/TMessagesProj/src/main/res/drawable-nodpi/femboy_icon_big.png b/TMessagesProj/src/main/res/drawable-nodpi/femboy_icon_big.png
 new file mode 100644
 index 0000000000000000000000000000000000000000..b5943cb867d48e9854a171dfb86f9f698494e73c
@@ -80621,7 +81370,7 @@ index 03d0ba33..8ea6403e 100644
      <string name="English">Inglês</string>
      <string name="LanguageNameInEnglish">Portuguese (Brazil)</string>
 diff --git a/TMessagesProj/src/main/res/values-ru/strings.xml b/TMessagesProj/src/main/res/values-ru/strings.xml
-index 24c56292..84392e3a 100644
+index 24c56292..7282d09a 100644
 --- a/TMessagesProj/src/main/res/values-ru/strings.xml
 +++ b/TMessagesProj/src/main/res/values-ru/strings.xml
 @@ -1,7 +1,7 @@
@@ -80634,7 +81383,7 @@ index 24c56292..84392e3a 100644
      <string name="LanguageName">Русский</string>
      <string name="English">Английский</string>
      <string name="LanguageNameInEnglish">Russian</string>
-@@ -263,4 +263,527 @@
+@@ -263,4 +263,577 @@
      <string name="RemindTodayAt">\'Отправить сегодня в\' HH:mm</string>
      <string name="RemindDayAt">\'Отправить\' d MMM \'в\' HH:mm</string>
      <string name="RemindDayYearAt">\'Напомнить\' d MMM yyyy \'в\' HH:mm</string>
@@ -81161,6 +81910,56 @@ index 24c56292..84392e3a 100644
 +    <string name="FemboyBadgeChannelAbout">Официальный канал форка.</string>
 +    <string name="FemboyBadgeSupporterTitle">Саппортер</string>
 +    <string name="FemboyBadgeSupporterAbout">Поддерживает проект.</string>
++    <string name="FemboyDonate">Донат</string>
++    <string name="FemboyDonateRow">Поддержать проект</string>
++    <string name="FemboyDonateJust">Просто поддержать проект, без ничего взамен. Спасибо!</string>
++    <string name="FemboyDonateYoomoney">ЮMoney</string>
++    <string name="FemboyDonateYoomoneyNote">100 ₽ — перевод напрямую</string>
++    <string name="FemboyDonateStars">Звёзды Telegram</string>
++    <string name="FemboyDonateStarsNote">100 ⭐ подарками на аккаунт 9051996412</string>
++    <string name="FemboyDonateNote">%1$s</string>
++    <string name="FemboyDonateBadgeHint">Хочешь значок саппортера? Открой «Значок саппортера» в разделе «О FemboyGram».</string>
++    <string name="FemboyBadgeBuyTitle">Значок саппортера</string>
++    <string name="FemboyBadgeBuyAbout">От 100 ₽ или 100 ⭐: %1$s</string>
++    <string name="FemboyBadgeBuyPrice">значок саппортера FemboyGram у вашего имени. Его видят все, у кого FemboyGram.</string>
++    <string name="FemboyBadgeBuyStepPay">1. Переведите от 100 ₽ или 100 ⭐</string>
++    <string name="FemboyBadgeBuyYoomoneyNote">100 ₽ переводом напрямую</string>
++    <string name="FemboyBadgeBuyStarsNote">100 ⭐ подарками на аккаунт 9051996412</string>
++    <string name="FemboyBadgeBuyStepId">2. Скопируйте свой ID</string>
++    <string name="FemboyBadgeBuyIdNote">Нажмите, он скопируется. По нему выдаётся значок.</string>
++    <string name="FemboyBadgeBuyStepWrite">3. Напишите в канал</string>
++    <string name="FemboyBadgeBuyWrite">Сообщения канала</string>
++    <string name="FemboyBadgeBuyWriteNote">Пришлите чек и ID</string>
++    <string name="FemboyBadgeBuyAfter">Значок выдаётся вручную, обычно в течение дня.</string>
++    <string name="FemboyDonateCopied">Скопировано</string>
++    <string name="FemboyVoiceTitle">Изменение голоса</string>
++    <string name="FemboyVoiceRow">Питч и эффекты для ГС</string>
++    <string name="FemboyVoiceEnabled">Включить изменение голоса</string>
++    <string name="FemboyVoiceAbout">Применяется во время записи голосовых и кружочков. Голос меняется до сохранения записи.</string>
++    <string name="FemboyVoicePitch">Высота голоса</string>
++    <string name="FemboyVoicePitch0">Низкий</string>
++    <string name="FemboyVoicePitch1">Чуть ниже</string>
++    <string name="FemboyVoicePitch2">Обычный</string>
++    <string name="FemboyVoicePitch3">Чуть выше</string>
++    <string name="FemboyVoicePitch4">Высокий</string>
++    <string name="FemboyVoiceFilter">Фильтр</string>
++    <string name="FemboyVoiceFilter0">Нет</string>
++    <string name="FemboyVoiceFilter1">Радио</string>
++    <string name="FemboyVoiceFilter2">Эхо</string>
++    <string name="FemboyVoiceNote">Эффект записывается в файл. Выключите, чтобы снова писать чистый голос.</string>
++    <string name="FemboyVoiceReset">Сбросить настройки голоса</string>
++    <string name="FemboyHiddenTitle">Скрытые чаты</string>
++    <string name="FemboyHiddenRow">Секретный жест и пин-код</string>
++    <string name="FemboyHiddenAbout">Скрытые чаты пропадают из списка. Никто не увидит их, пока вы их не покажете.</string>
++    <string name="FemboyHiddenSetPin">Задать пин-код</string>
++    <string name="FemboyHiddenChangePin">Изменить пин-код</string>
++    <string name="FemboyHiddenUnhideAll">Показать все чаты</string>
++    <string name="FemboyHiddenConceal">Спрятать обратно</string>
++    <string name="FemboyHiddenHow">Нажмите долго на чат и выберите «Скрыть чат». Свайпните заголовок списка в сторону или введите пин-код в поиске, чтобы показать скрытые чаты.</string>
++    <string name="FemboyHiddenRevealed">Скрытые чаты видны</string>
++    <string name="FemboyHiddenConcealed">Скрытые чаты снова спрятаны</string>
++    <string name="FemboyHiddenHideChat">Скрыть чат</string>
++    <string name="FemboyHiddenUnhideChat">Вернуть чат</string>
  </resources>
 \ No newline at end of file
 diff --git a/TMessagesProj/src/main/res/values-uk/strings.xml b/TMessagesProj/src/main/res/values-uk/strings.xml
@@ -81179,10 +81978,10 @@ index d4683443..5c8e724a 100644
      <string name="LanguageNameInEnglish">Ukrainian</string>
 diff --git a/TMessagesProj/src/main/res/values-zh/strings.xml b/TMessagesProj/src/main/res/values-zh/strings.xml
 new file mode 100644
-index 00000000..378aabf0
+index 00000000..8d137183
 --- /dev/null
 +++ b/TMessagesProj/src/main/res/values-zh/strings.xml
-@@ -0,0 +1,526 @@
+@@ -0,0 +1,576 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<resources>
 +    <string name="FemboySettings">分支设置</string>
@@ -81708,6 +82507,56 @@ index 00000000..378aabf0
 +    <string name="FemboyBadgeChannelAbout">分支官方频道。</string>
 +    <string name="FemboyBadgeSupporterTitle">支持者</string>
 +    <string name="FemboyBadgeSupporterAbout">支持本项目。</string>
++    <string name="FemboyDonate">捐赠</string>
++    <string name="FemboyDonateRow">支持项目</string>
++    <string name="FemboyDonateJust">单纯支持项目，不求回报。谢谢！</string>
++    <string name="FemboyDonateYoomoney">YooMoney</string>
++    <string name="FemboyDonateYoomoneyNote">100 卢布 - 直接转账</string>
++    <string name="FemboyDonateStars">Telegram 星星</string>
++    <string name="FemboyDonateStarsNote">100 ⭐ 赠送给账号 9051996412</string>
++    <string name="FemboyDonateNote">%1$s</string>
++    <string name="FemboyDonateBadgeHint">想要支持者徽章？在「关于 FemboyGram」中打开「支持者徽章」。</string>
++    <string name="FemboyBadgeBuyTitle">支持者徽章</string>
++    <string name="FemboyBadgeBuyAbout">100 卢布或 100 星起：%1$s</string>
++    <string name="FemboyBadgeBuyPrice">FemboyGram 支持者徽章会显示在您的名字旁，所有 FemboyGram 用户都能看到。</string>
++    <string name="FemboyBadgeBuyStepPay">1. 转账 100 卢布或 100 星</string>
++    <string name="FemboyBadgeBuyYoomoneyNote">100 卢布直接转账</string>
++    <string name="FemboyBadgeBuyStarsNote">100 ⭐ 赠送给账号 9051996412</string>
++    <string name="FemboyBadgeBuyStepId">2. 复制你的 ID</string>
++    <string name="FemboyBadgeBuyIdNote">点击复制。徽章按此 ID 发放。</string>
++    <string name="FemboyBadgeBuyStepWrite">3. 给频道发消息</string>
++    <string name="FemboyBadgeBuyWrite">频道消息</string>
++    <string name="FemboyBadgeBuyWriteNote">发送收据和 ID</string>
++    <string name="FemboyBadgeBuyAfter">徽章人工发放，通常一天内完成。</string>
++    <string name="FemboyDonateCopied">已复制</string>
++    <string name="FemboyVoiceTitle">变声器</string>
++    <string name="FemboyVoiceRow">语音消息的音调和效果</string>
++    <string name="FemboyVoiceEnabled">启用变声器</string>
++    <string name="FemboyVoiceAbout">录制语音和视频圆圈时生效，声音在保存前就被处理。</string>
++    <string name="FemboyVoicePitch">音调</string>
++    <string name="FemboyVoicePitch0">低沉</string>
++    <string name="FemboyVoicePitch1">稍低</string>
++    <string name="FemboyVoicePitch2">正常</string>
++    <string name="FemboyVoicePitch3">稍高</string>
++    <string name="FemboyVoicePitch4">尖细</string>
++    <string name="FemboyVoiceFilter">滤镜</string>
++    <string name="FemboyVoiceFilter0">无</string>
++    <string name="FemboyVoiceFilter1">收音机</string>
++    <string name="FemboyVoiceFilter2">回声</string>
++    <string name="FemboyVoiceNote">效果会写入录音文件。关闭后可重新录制原声。</string>
++    <string name="FemboyVoiceReset">重置声音设置</string>
++    <string name="FemboyHiddenTitle">隐藏聊天</string>
++    <string name="FemboyHiddenRow">秘密手势和密码</string>
++    <string name="FemboyHiddenAbout">隐藏的聊天会从列表中消失，除非你主动显示它们，否则没人能看到。</string>
++    <string name="FemboyHiddenSetPin">设置密码</string>
++    <string name="FemboyHiddenChangePin">修改密码</string>
++    <string name="FemboyHiddenUnhideAll">显示所有聊天</string>
++    <string name="FemboyHiddenConceal">再次隐藏</string>
++    <string name="FemboyHiddenHow">长按聊天并选择「隐藏聊天」。在聊天列表标题上横向滑动，或在搜索框输入密码，即可显示隐藏的聊天。</string>
++    <string name="FemboyHiddenRevealed">隐藏聊天已显示</string>
++    <string name="FemboyHiddenConcealed">隐藏聊天已重新隐藏</string>
++    <string name="FemboyHiddenHideChat">隐藏聊天</string>
++    <string name="FemboyHiddenUnhideChat">取消隐藏</string>
 +</resources>
 diff --git a/TMessagesProj/src/main/res/values/ids.xml b/TMessagesProj/src/main/res/values/ids.xml
 index cc49d135..d62afb57 100644
@@ -81726,7 +82575,7 @@ index cc49d135..d62afb57 100644
      <item name="menu_regular" type="id"/>
      <item name="menu_bold" type="id"/>
 diff --git a/TMessagesProj/src/main/res/values/strings.xml b/TMessagesProj/src/main/res/values/strings.xml
-index db9de755..638a8ef5 100644
+index db9de755..a6930b28 100644
 --- a/TMessagesProj/src/main/res/values/strings.xml
 +++ b/TMessagesProj/src/main/res/values/strings.xml
 @@ -1,7 +1,7 @@
@@ -82251,7 +83100,7 @@ index db9de755..638a8ef5 100644
  
      <string name="RoundVideoSettings">Round Video</string>
      <string name="RoundVideoGeneral">Recorder</string>
-@@ -11630,4 +12135,22 @@
+@@ -11630,4 +12135,72 @@
      <string name="NoPaidMessagesTokenUsed">un1 used your QR code and can message you for free</string>
      <string name="NoPaidMessagesTokenUsedOut">You used the QR code of un1 and can message them for free</string>
      <string name="NoPaidMessagesTokenImported">You can now message **%1$s** for free.</string>
@@ -82273,6 +83122,56 @@ index db9de755..638a8ef5 100644
 +    <string name="FemboyBadgeChannelAbout">The fork\'s official channel.</string>
 +    <string name="FemboyBadgeSupporterTitle">Supporter</string>
 +    <string name="FemboyBadgeSupporterAbout">Supports the project.</string>
++    <string name="FemboyDonate">Donate</string>
++    <string name="FemboyDonateRow">Support the project</string>
++    <string name="FemboyDonateJust">Just support the project, nothing in return. Thank you!</string>
++    <string name="FemboyDonateYoomoney">YooMoney</string>
++    <string name="FemboyDonateYoomoneyNote">100 RUB - direct transfer</string>
++    <string name="FemboyDonateStars">Telegram Stars</string>
++    <string name="FemboyDonateStarsNote">100 stars as a gift to 9051996412</string>
++    <string name="FemboyDonateNote">%1$s</string>
++    <string name="FemboyDonateBadgeHint">Want a supporter badge? Open Supporter badge in the About section.</string>
++    <string name="FemboyBadgeBuyTitle">Supporter badge</string>
++    <string name="FemboyBadgeBuyAbout">From 100 RUB or 100 stars: %1$s</string>
++    <string name="FemboyBadgeBuyPrice">a FemboyGram supporter badge by your name. Everyone with FemboyGram sees it.</string>
++    <string name="FemboyBadgeBuyStepPay">1. Send 100 RUB or 100 stars</string>
++    <string name="FemboyBadgeBuyYoomoneyNote">100 RUB direct transfer</string>
++    <string name="FemboyBadgeBuyStarsNote">100 stars as gifts to 9051996412</string>
++    <string name="FemboyBadgeBuyStepId">2. Copy your ID</string>
++    <string name="FemboyBadgeBuyIdNote">Tap to copy. The badge is given to this account.</string>
++    <string name="FemboyBadgeBuyStepWrite">3. Write to the channel</string>
++    <string name="FemboyBadgeBuyWrite">Message the channel</string>
++    <string name="FemboyBadgeBuyWriteNote">Send the receipt and your ID</string>
++    <string name="FemboyBadgeBuyAfter">The badge is given by hand, usually within a day.</string>
++    <string name="FemboyDonateCopied">Copied</string>
++    <string name="FemboyVoiceTitle">Voice changer</string>
++    <string name="FemboyVoiceRow">Pitch and effects for voice messages</string>
++    <string name="FemboyVoiceEnabled">Enable voice changer</string>
++    <string name="FemboyVoiceAbout">Applies while recording voice messages and round videos. Changes the voice before it is saved.</string>
++    <string name="FemboyVoicePitch">Voice pitch</string>
++    <string name="FemboyVoicePitch0">Deep</string>
++    <string name="FemboyVoicePitch1">Slightly deep</string>
++    <string name="FemboyVoicePitch2">Normal</string>
++    <string name="FemboyVoicePitch3">Slightly high</string>
++    <string name="FemboyVoicePitch4">High</string>
++    <string name="FemboyVoiceFilter">Filter</string>
++    <string name="FemboyVoiceFilter0">None</string>
++    <string name="FemboyVoiceFilter1">Radio</string>
++    <string name="FemboyVoiceFilter2">Echo</string>
++    <string name="FemboyVoiceNote">The effect is baked into the recording. Turn it off to record clean audio again.</string>
++    <string name="FemboyVoiceReset">Reset voice settings</string>
++    <string name="FemboyHiddenTitle">Hidden chats</string>
++    <string name="FemboyHiddenRow">Secret gesture and PIN</string>
++    <string name="FemboyHiddenAbout">Hidden chats disappear from the chat list. No one can see them unless you reveal them.</string>
++    <string name="FemboyHiddenSetPin">Set PIN</string>
++    <string name="FemboyHiddenChangePin">Change PIN</string>
++    <string name="FemboyHiddenUnhideAll">Unhide all chats</string>
++    <string name="FemboyHiddenConceal">Hide them again</string>
++    <string name="FemboyHiddenHow">Long-press a chat and choose Hide chat. Swipe the title on the chat list sideways, or type the PIN in search, to reveal hidden chats.</string>
++    <string name="FemboyHiddenRevealed">Hidden chats are visible</string>
++    <string name="FemboyHiddenConcealed">Hidden chats are hidden again</string>
++    <string name="FemboyHiddenHideChat">Hide chat</string>
++    <string name="FemboyHiddenUnhideChat">Unhide chat</string>
  </resources>
 diff --git a/TMessagesProj_App/build.gradle b/TMessagesProj_App/build.gradle
 index c581f3de..08a0b97d 100644
@@ -100228,7 +101127,7 @@ index f7c8fcb7..b4cc76fc 100644
  }
  repositories {
 diff --git a/gradle.properties b/gradle.properties
-index 4a5efa19..c2806dfe 100644
+index 4a5efa19..144c87f8 100644
 --- a/gradle.properties
 +++ b/gradle.properties
 @@ -13,9 +13,9 @@
@@ -100236,7 +101135,7 @@ index 4a5efa19..c2806dfe 100644
  # org.gradle.parallel=true
  #Sat Mar 12 05:53:50 MSK 2016
 -APP_VERSION_CODE=7237
-+APP_VERSION_CODE=7240
++APP_VERSION_CODE=7241
  APP_VERSION_NAME=13.1.1
 -APP_PACKAGE=org.telegram.messenger
 +APP_PACKAGE=org.femboygram.app

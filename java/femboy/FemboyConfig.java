@@ -543,4 +543,33 @@ public class FemboyConfig {
     public static void setBadgesEnabled(boolean on) {
         prefs().edit().putBoolean("badges", on).apply();
     }
+
+    // ------------------------------------------------------------- donate
+    public static final String DONATE_YOOMONEY = "https://yoomoney.ru/to/4100118861022194";
+    public static final long DONATE_GIFT_USER = 9051996412L;
+
+    // ------------------------------------------------------------- voice changer
+    public static boolean voiceFxEnabled() {
+        return prefs().getBoolean("voice_fx", false);
+    }
+
+    public static void setVoiceFxEnabled(boolean on) {
+        prefs().edit().putBoolean("voice_fx", on).apply();
+    }
+
+    public static int voicePitch() {
+        return prefs().getInt("voice_pitch", 2);
+    }
+
+    public static void setVoicePitch(int value) {
+        prefs().edit().putInt("voice_pitch", value).apply();
+    }
+
+    public static int voiceFilter() {
+        return prefs().getInt("voice_filter", 0);
+    }
+
+    public static void setVoiceFilter(int value) {
+        prefs().edit().putInt("voice_filter", value).apply();
+    }
 }

@@ -10,7 +10,7 @@ Telegram — different package, different signature. arm64 only.
 
 ## Download
 
-**[FemboyGram 1.0 — APK](https://github.com/webrch/femboy-gram/releases/download/v1.0/FemboyGram-1.0.apk)**
+**[FemboyGram 1.1 — APK](https://github.com/webrch/femboy-gram/releases/download/v1.1/FemboyGram-1.1.apk)**
 
 Installs next to the official Telegram. Android 23+, arm64 only.
 

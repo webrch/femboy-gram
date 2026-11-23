@@ -12758,7 +12758,7 @@ index 00000000..c0b00222
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java
 new file mode 100644
-index 00000000..bbc5428a
+index 00000000..ef102c27
 --- /dev/null
 +++ b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java
 @@ -0,0 +1,538 @@
@@ -12804,7 +12804,7 @@ index 00000000..bbc5428a
 +     * 0.99, а не 1.0, нарочно: настоящая единица должна остаться свободной
 +     * под настоящий выпуск, а пререлиз обязан быть строго меньше её.
 +     */
-+    public static final String APP_VERSION = "1.0";
++    public static final String APP_VERSION = "1.1";
 +
 +    /**
 +     * Номер, который видит человек. У пререлизов 0.99.N он был «1.0.N»; с

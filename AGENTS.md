@@ -226,6 +226,18 @@ gradle :TMessagesProj_AppStandalone:assembleAfatStandalone
 - Страница релиза: https://github.com/webrch/femboy-gram/releases/tag/v1.1
 - В тексте релиза описаны изменения 1.1 и предупреждение про ToS.
 
+
+### Исправление обновления (24.11.2026)
+
+Причина ошибки «не удалось скачать обновление»: `FemboyConfig.APP_VERSION` стал «1.1»,
+но `APP_VERSION_CODE` в `tg-src/gradle.properties` остался 7237, поэтому versionCode APK
+остался 72379 — такой же, как у 1.0. Проверка `FemboyUpdate.newerThanInstalled()`
+сравнивает versionCode и отклоняла скачанный файл как «не новее установленного».
+- Поднят `APP_VERSION_CODE` до 7238 → versionCode APK теперь 72389 (> 72379).
+- APK пересобран (70 345 386 байт), ассет в релизе v1.1 заменён через `gh release upload --clobber`.
+- **Правило на будущее:** при каждом повышении номера версии обязательно поднимать
+  и `APP_VERSION_CODE`, иначе обновлялка будет ломаться.
+
 ## 4. Важные технические детали
 
 1. **Патч — источник истины.** Любая правка кода делается в `tg-src/`, потом:

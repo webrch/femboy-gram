@@ -99814,12 +99814,15 @@ index f7c8fcb7..b4cc76fc 100644
  }
  repositories {
 diff --git a/gradle.properties b/gradle.properties
-index 4a5efa19..faf0e436 100644
+index 4a5efa19..25c5f8da 100644
 --- a/gradle.properties
 +++ b/gradle.properties
-@@ -15,7 +15,7 @@
+@@ -13,9 +13,9 @@
+ # http://www.gradle.org/docs/current/userguide/multi_project_builds.html#sec:decoupled_projects
+ # org.gradle.parallel=true
  #Sat Mar 12 05:53:50 MSK 2016
- APP_VERSION_CODE=7237
+-APP_VERSION_CODE=7237
++APP_VERSION_CODE=7238
  APP_VERSION_NAME=13.1.1
 -APP_PACKAGE=org.telegram.messenger
 +APP_PACKAGE=org.femboygram.app

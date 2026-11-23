@@ -262,22 +262,21 @@ gradle :TMessagesProj_AppStandalone:assembleAfatStandalone
 - Глиф заменён на чистый **вектор** `res/drawable/femboy_badge_heart.xml`
   (простой путь сердца, белая заливка); растр `femboy_badge_heart.png` удалён.
 - Версия 1.2.1, `APP_VERSION_CODE=7240` -> versionCode 72409.
-- Релиз https://github.com/webrch/femboy-gram/releases/tag/v1.2.1
-- Остальные запрошенные функции (voice changer, скрытые чаты, донат и тутор
-  саппортера) ещё НЕ сделаны — следующий этап.
+- Релиз https://github.com/webrch/femboy-gram/releases/tag/v1.2.1 (ныне pre-release;
+  тот же билд позже перезалит как v1.2 по просьбе владельца).
 
 
 ### Финальный релиз 1.2.1 — войс-ченджер, скрытые чаты, донат (24.11.2026)
 
-По просьбе владельна пре-обновой остался релиз v1.2 (тот же билд с чистым
+По просьбе владельца пре-обновой остался релиз v1.2 (тот же билд с чистым
 векторным сердечком), а финальная сборка с новыми функциями вышла как v1.2.1.
 - **Войс-ченджер:** `org.telegram.femboy.FemboyVoiceFx` — OLA-питч-шифтер
   (5 пресетов 0.75…1.35) и фильтры «Радио»/«Эхо». Хук в
   `AudioCapture.encodeFrame()` перед `encoder.writeFrame()`, то есть эффект
-  применяется и к ГС, и к кружочкам, Output IEEE length не меняется.
+  применяется и к ГС, и к кружочкам, длина вывода не меняется.
   Настройки в FemboyConfig (`voice_fx`, `voice_pitch`, `voice_filter`),
   экран «Настройки → FemboyGram → Изменение голоса».
-  Память:-ring 8 секунд; при очень долгой записи с высоким питчем головка
+  Кольцевой буфер на 8 секунд; при очень долгой записи с высоким питчем головка
   читателя упирается в границу и эффект мягко деградирует.
 - **Скрытые чаты:** `org.telegram.femboy.FemboyHiddenChats` — SharedPreferences
   со списком ID и пин-кодом. `DialogsActivity.getDialogsArray()` выдаёт
@@ -310,6 +309,27 @@ gradle :TMessagesProj_AppStandalone:assembleAfatStandalone
   обновлялка молчит, даже если versionCode apk больше.
 - Функции из 1.2.1 (голосовой ченджер, скрытые чаты, донат, гид саппортера)
   вошли в эту сборку без изменений.
+
+### Актуальное состояние (конец сессии 24.11.2026)
+
+**Все запрошенные владельцем функции сделаны и выложены.** Текущая версия — **1.2.2**,
+`@versionCode 72429`, package `org.femboygram.app`, arm64, Android 23+.
+- Репозиторий: https://github.com/webrch/femboy-gram (ветка `main`, запушено).
+- Актуальный релиз: https://github.com/webrch/femboy-gram/releases/tag/v1.2.2
+- APK: https://github.com/webrch/femboy-gram/releases/download/v1.2.2/FemboyGram-1.2.2.apk
+- `badges.json`: https://raw.githubusercontent.com/webrch/femboy-gram/main/badges.json
+- Локальные копии APK: `FemboyGram.apk` в корне рабочей папки и в `_release/`.
+- Патч `patch/femboygram.patch` пересобран после последнего bump, CRLF-ловушка
+  соблюдена (файл в LF).
+
+Готово: ребрендинг, три пастельные Material You темы, анимированная шапка,
+музыка/плеер, плагины, режим призрака, сердечки-бейджи с обновлением через
+`badges.json`, войс-ченджер, скрытые чаты по жесту/пину, донат и гид по бейджу
+саппортера. Пост для канала согласован и положен в текст релиза v1.2.2.
+
+**Осталось в планах (не сделано намеренно):** рекламное видео — нужно уточнить у
+владельца формат (9:16 / 16:9), длину, живой screenrecord или motion-графику и
+музыку. Никаких файлов для видео пока нет.
 
 ## 4. Важные технические детали
 

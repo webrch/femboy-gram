@@ -215,6 +215,17 @@ gradle :TMessagesProj_AppStandalone:assembleAfatStandalone
 - APK пересобран (70 345 404 байт), залит в релиз v1.0, исходники запушены.
 - ToS-breaking: Telegram может ограничить аккаунт — владелец предупреждён.
 
+
+### Релиз 1.1 (24.11.2026)
+
+Версия поднята везде: `FemboyConfig.APP_VERSION = "1.1"`, `version.json` указывает
+на `https://github.com/webrch/femboy-gram/releases/download/v1.1/FemboyGram-1.1.apk`,
+в README (en/ru/zh) обновлены ссылки на скачивание. Старый релиз v1.0 оставлен в истории.
+- APK 1.1: 70 345 397 байт, собран и залит в релиз v1.1.
+- Прямая ссылка: https://github.com/webrch/femboy-gram/releases/download/v1.1/FemboyGram-1.1.apk
+- Страница релиза: https://github.com/webrch/femboy-gram/releases/tag/v1.1
+- В тексте релиза описаны изменения 1.1 и предупреждение про ToS.
+
 ## 4. Важные технические детали
 
 1. **Патч — источник истины.** Любая правка кода делается в `tg-src/`, потом:

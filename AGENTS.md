@@ -129,6 +129,8 @@ gradle :TMessagesProj_AppStandalone:assembleAfatStandalone
 
 - Релиз выложен на GitHub: `https://github.com/webrch/femboy-gram`, тег `v1.0`, ассет `FemboyGram-1.0.apk`. Ссылка на скачивание: `https://github.com/webrch/femboy-gram/releases/download/v1.0/FemboyGram-1.0.apk`. Чистая экспортная копия без tg-src лежит в `../_release`.
 
+- Пример плагина: в архиве `femboy_example.marp` (и в `TMessagesProj`, и в `TMessagesProj_AppStandalone`) заменены id на `femboy.example`, автор на `синдзи`, иконка на `femboygram_alt.png`. Старый пример с `narezany` удалён из APK. Пересобранный APK залит в релиз v1.0 (70342917 байт), прямая ссылка прежняя.
+
 ## 4. Важные технические детали
 
 1. **Патч — источник истины.** Любая правка кода делается в `tg-src/`, потом:

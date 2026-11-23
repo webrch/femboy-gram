@@ -474,4 +474,9 @@ public class FemboyConfig {
         prefs().edit().putBoolean("plugin_example_done", true).apply();
         return true;
     }
+
+    /** Used once to replace the inherited example plugin after an update. */
+    public static void resetExamplePlugin() {
+        prefs().edit().remove("plugin_example_done").apply();
+    }
 }

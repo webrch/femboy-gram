@@ -12758,10 +12758,10 @@ index 00000000..c0b00222
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java
 new file mode 100644
-index 00000000..3d403e1b
+index 00000000..874bebc3
 --- /dev/null
 +++ b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java
-@@ -0,0 +1,477 @@
+@@ -0,0 +1,482 @@
 +package org.telegram.femboy;
 +
 +import android.content.Context;
@@ -13237,6 +13237,11 @@ index 00000000..3d403e1b
 +        }
 +        prefs().edit().putBoolean("plugin_example_done", true).apply();
 +        return true;
++    }
++
++    /** Used once to replace the inherited example plugin after an update. */
++    public static void resetExamplePlugin() {
++        prefs().edit().remove("plugin_example_done").apply();
 +    }
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyCopy.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyCopy.java
@@ -21476,10 +21481,10 @@ index 00000000..173537e5
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyPlugins.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyPlugins.java
 new file mode 100644
-index 00000000..735805bc
+index 00000000..90f5e8bf
 --- /dev/null
 +++ b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyPlugins.java
-@@ -0,0 +1,777 @@
+@@ -0,0 +1,794 @@
 +package org.telegram.femboy;
 +
 +import android.content.Context;
@@ -21823,6 +21828,23 @@ index 00000000..735805bc
 +     * чтобы его открыли и прочитали, а не чтобы он что-то делал сам.
 +     */
 +    public static void preinstallExample() {
++        // The upstream example was installed once under its old id and stayed
++        // in app data across updates. Remove it and install the FemboyGram one.
++        final File root = root();
++        final File[] installed = root.listFiles();
++        boolean removedLegacy = false;
++        if (installed != null) {
++            for (File folder : installed) {
++                final String id = folder.getName().toLowerCase(java.util.Locale.ROOT);
++                if (folder.isDirectory() && (id.contains("margelet") || id.contains("margy"))) {
++                    delete(folder);
++                    removedLegacy = true;
++                }
++            }
++        }
++        if (removedLegacy) {
++            FemboyConfig.resetExamplePlugin();
++        }
 +        if (!FemboyConfig.claimExamplePlugin()) {
 +            return;
 +        }

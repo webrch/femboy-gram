@@ -341,6 +341,23 @@ public class FemboyPlugins {
      * чтобы его открыли и прочитали, а не чтобы он что-то делал сам.
      */
     public static void preinstallExample() {
+        // The upstream example was installed once under its old id and stayed
+        // in app data across updates. Remove it and install the FemboyGram one.
+        final File root = root();
+        final File[] installed = root.listFiles();
+        boolean removedLegacy = false;
+        if (installed != null) {
+            for (File folder : installed) {
+                final String id = folder.getName().toLowerCase(java.util.Locale.ROOT);
+                if (folder.isDirectory() && (id.contains("margelet") || id.contains("margy"))) {
+                    delete(folder);
+                    removedLegacy = true;
+                }
+            }
+        }
+        if (removedLegacy) {
+            FemboyConfig.resetExamplePlugin();
+        }
         if (!FemboyConfig.claimExamplePlugin()) {
             return;
         }

@@ -58,5 +58,17 @@
     "about_ru": "Официальный канал форка.",
     "about_zh": "分支官方频道。",
     "url": "https://t.me/femboyconfs"
+  },
+  {
+    "peer": 6289392493,
+    "id": "boyfriend",
+    "color": "B39DDB",
+    "title": "Owner's boyfriend",
+    "title_ru": "Парень владельца",
+    "title_zh": "所有者的男友",
+    "about": "Don't message him.",
+    "about_ru": "Не пишите ему.",
+    "about_zh": "不要给他发消息。",
+    "url": ""
   }
 ]

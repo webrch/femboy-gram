@@ -40,7 +40,7 @@ public class FemboyConfig {
      * 0.99, а не 1.0, нарочно: настоящая единица должна остаться свободной
      * под настоящий выпуск, а пререлиз обязан быть строго меньше её.
      */
-    public static final String APP_VERSION = "1.2.2";
+    public static final String APP_VERSION = "1.2.3";
 
     /**
      * Номер, который видит человек. У пререлизов 0.99.N он был «1.0.N»; с
@@ -478,6 +478,15 @@ public class FemboyConfig {
     /** Used once to replace the inherited example plugin after an update. */
     public static void resetExamplePlugin() {
         prefs().edit().remove("plugin_example_done").apply();
+    }
+
+    /** The built-in voice changer is installed once, like the example plugin. */
+    public static boolean claimVoicePlugin() {
+        if (prefs().getBoolean("plugin_voice_done", false)) {
+            return false;
+        }
+        prefs().edit().putBoolean("plugin_voice_done", true).apply();
+        return true;
     }
 
     // ------------------------------------------------------------- ghost mode

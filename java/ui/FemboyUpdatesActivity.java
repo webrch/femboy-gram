@@ -3,8 +3,11 @@ package org.telegram.ui;
 import android.view.View;
 
 import org.telegram.femboy.FemboyConfig;
+import org.telegram.femboy.FemboyPlugins;
+import org.telegram.femboy.FemboyPluginHost;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.femboy.FemboyUpdate;
+import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.NotificationCenter;
@@ -126,11 +129,34 @@ public class FemboyUpdatesActivity extends UniversalFragment {
                 presentFragment(new FemboyDonateActivity(true));
                 break;
             case ID_VOICE:
-                presentFragment(new FemboyVoiceActivity());
+                openVoicePlugin();
                 break;
             case ID_HIDDEN:
                 presentFragment(new FemboyHiddenChatsActivity());
                 break;
+        }
+    }
+
+    /** Голосовой ченджер теперь живёт в плагине — открываем его настройки. */
+    private void openVoicePlugin() {
+        final String id = "femboy.voice_changer";
+        FemboyPlugins.Plugin plugin = FemboyPlugins.find(id);
+        if (plugin == null) {
+            presentFragment(new FemboyPluginsActivity());
+            return;
+        }
+        if (!plugin.enabled()) {
+            FemboyConfig.setPluginEnabled(id, true);
+            if (!FemboyConfig.pluginsEnabled()) {
+                FemboyConfig.setPluginsEnabled(true);
+            }
+        }
+        if (!FemboyPluginHost.isRunning(id)) {
+            FemboyPluginHost.start();
+            // Питон поднимается в своём потоке; даём ему объявить настройки.
+            AndroidUtilities.runOnUIThread(() -> presentFragment(new FemboyPluginSettingsActivity(plugin)), 600);
+        } else {
+            presentFragment(new FemboyPluginSettingsActivity(plugin));
         }
     }
 

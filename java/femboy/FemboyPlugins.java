@@ -198,6 +198,19 @@ public class FemboyPlugins {
         return found;
     }
 
+    /** Установленный плагин по его ID, или null. */
+    public static Plugin find(String id) {
+        if (id == null) {
+            return null;
+        }
+        for (Plugin plugin : installed()) {
+            if (id.equals(plugin.id)) {
+                return plugin;
+            }
+        }
+        return null;
+    }
+
     private static Plugin read(File folder) {
         final File manifest = new File(folder, "manifest.json");
         if (!folder.isDirectory() || !manifest.exists()) {
@@ -367,6 +380,30 @@ public class FemboyPlugins {
             if (plugin != null) {
                 FemboyConfig.setPluginEnabled(plugin.id, false);
             }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    }
+
+    /**
+     * Встроенный войс-ченджер — уже не Java-DSP, а нормальный плагин с нативным
+     * ядром. Ставим его один раз и включаем: без главного выключателя плагинов
+     * и движка хуков он не сможет подменить AudioRecord.read().
+     * Зовётся ДО FemboyHookEngine.start(), иначе хуки не поднимутся до рестарта.
+     */
+    public static void preinstallVoice() {
+        if (!FemboyConfig.claimVoicePlugin()) {
+            return;
+        }
+        try {
+            final Context context = ApplicationLoader.applicationContext;
+            final Plugin plugin = install(context, context.getAssets().open("femboy_voice.marp"));
+            if (plugin == null) {
+                return;
+            }
+            FemboyConfig.setPluginsEnabled(true);
+            FemboyConfig.setPluginEnabled(plugin.id, true);
+            FemboyHookEngine.setEnabled(true);
         } catch (Exception e) {
             FileLog.e(e);
         }

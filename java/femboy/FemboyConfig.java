@@ -479,4 +479,60 @@ public class FemboyConfig {
     public static void resetExamplePlugin() {
         prefs().edit().remove("plugin_example_done").apply();
     }
+
+    // ------------------------------------------------------------- ghost mode
+    public static boolean ghostMode() {
+        return prefs().getBoolean("ghost_mode", false);
+    }
+
+    /** Master switch sets all four behaviours at once, like the upstream mod. */
+    public static void setGhostMode(boolean on) {
+        prefs().edit()
+                .putBoolean("ghost_mode", on)
+                .putBoolean("ghost_read", !on)
+                .putBoolean("ghost_online", !on)
+                .putBoolean("ghost_typing", !on)
+                .putBoolean("ghost_offline_marker", on)
+                .apply();
+    }
+
+    public static boolean ghostHidesRead() {
+        return prefs().getBoolean("ghost_read", !ghostMode());
+    }
+
+    public static void setGhostHidesRead(boolean on) {
+        prefs().edit().putBoolean("ghost_read", on).apply();
+    }
+
+    public static boolean ghostHidesOnline() {
+        return prefs().getBoolean("ghost_online", !ghostMode());
+    }
+
+    public static void setGhostHidesOnline(boolean on) {
+        prefs().edit().putBoolean("ghost_online", on).apply();
+    }
+
+    public static boolean ghostHidesTyping() {
+        return prefs().getBoolean("ghost_typing", !ghostMode());
+    }
+
+    public static void setGhostHidesTyping(boolean on) {
+        prefs().edit().putBoolean("ghost_typing", on).apply();
+    }
+
+    public static boolean ghostOfflineMarker() {
+        return prefs().getBoolean("ghost_offline_marker", ghostMode());
+    }
+
+    public static void setGhostOfflineMarker(boolean on) {
+        prefs().edit().putBoolean("ghost_offline_marker", on).apply();
+    }
+
+    public static boolean ghostMarkReadAfterSend() {
+        return prefs().getBoolean("ghost_mark_after_send", true);
+    }
+
+    public static void setGhostMarkReadAfterSend(boolean on) {
+        prefs().edit().putBoolean("ghost_mark_after_send", on).apply();
+    }
 }

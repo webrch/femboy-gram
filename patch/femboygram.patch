@@ -12758,10 +12758,10 @@ index 00000000..c0b00222
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java
 new file mode 100644
-index 00000000..874bebc3
+index 00000000..bbc5428a
 --- /dev/null
 +++ b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java
-@@ -0,0 +1,482 @@
+@@ -0,0 +1,538 @@
 +package org.telegram.femboy;
 +
 +import android.content.Context;
@@ -13242,6 +13242,62 @@ index 00000000..874bebc3
 +    /** Used once to replace the inherited example plugin after an update. */
 +    public static void resetExamplePlugin() {
 +        prefs().edit().remove("plugin_example_done").apply();
++    }
++
++    // ------------------------------------------------------------- ghost mode
++    public static boolean ghostMode() {
++        return prefs().getBoolean("ghost_mode", false);
++    }
++
++    /** Master switch sets all four behaviours at once, like the upstream mod. */
++    public static void setGhostMode(boolean on) {
++        prefs().edit()
++                .putBoolean("ghost_mode", on)
++                .putBoolean("ghost_read", !on)
++                .putBoolean("ghost_online", !on)
++                .putBoolean("ghost_typing", !on)
++                .putBoolean("ghost_offline_marker", on)
++                .apply();
++    }
++
++    public static boolean ghostHidesRead() {
++        return prefs().getBoolean("ghost_read", !ghostMode());
++    }
++
++    public static void setGhostHidesRead(boolean on) {
++        prefs().edit().putBoolean("ghost_read", on).apply();
++    }
++
++    public static boolean ghostHidesOnline() {
++        return prefs().getBoolean("ghost_online", !ghostMode());
++    }
++
++    public static void setGhostHidesOnline(boolean on) {
++        prefs().edit().putBoolean("ghost_online", on).apply();
++    }
++
++    public static boolean ghostHidesTyping() {
++        return prefs().getBoolean("ghost_typing", !ghostMode());
++    }
++
++    public static void setGhostHidesTyping(boolean on) {
++        prefs().edit().putBoolean("ghost_typing", on).apply();
++    }
++
++    public static boolean ghostOfflineMarker() {
++        return prefs().getBoolean("ghost_offline_marker", ghostMode());
++    }
++
++    public static void setGhostOfflineMarker(boolean on) {
++        prefs().edit().putBoolean("ghost_offline_marker", on).apply();
++    }
++
++    public static boolean ghostMarkReadAfterSend() {
++        return prefs().getBoolean("ghost_mark_after_send", true);
++    }
++
++    public static void setGhostMarkReadAfterSend(boolean on) {
++        prefs().edit().putBoolean("ghost_mark_after_send", on).apply();
 +    }
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyCopy.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyCopy.java
@@ -14636,6 +14692,65 @@ index 00000000..7e73e395
 +        // Даём окну уйти, иначе система покажет чёрный кадр на месте бывшего.
 +        org.telegram.messenger.AndroidUtilities.runOnUIThread(
 +                () -> Runtime.getRuntime().exit(0), 300);
++    }
++}
+diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyGhost.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyGhost.java
+new file mode 100644
+index 00000000..49276a38
+--- /dev/null
++++ b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyGhost.java
+@@ -0,0 +1,53 @@
++package org.telegram.femboy;
++
++/**
++ * Ghost mode: read receipts, online status and typing are hidden from the
++ * server while the client keeps working normally.
++ *
++ * The one-shot read allowance exists for the rare case when the user explicitly
++ * wants a single chat to be marked as read (for example after sending a message).
++ */
++public final class FemboyGhost {
++
++    private FemboyGhost() {}
++
++    private static boolean allowRead;
++    private static int allowReadLeft;
++
++    public static synchronized void allowNextRead(int times) {
++        allowRead = true;
++        allowReadLeft = Math.max(1, times);
++    }
++
++    public static synchronized boolean consumeReadAllowance() {
++        if (!allowRead) {
++            return false;
++        }
++        allowReadLeft--;
++        if (allowReadLeft <= 0) {
++            allowRead = false;
++            allowReadLeft = 0;
++        }
++        return true;
++    }
++
++    public static boolean active() {
++        return FemboyConfig.ghostMode();
++    }
++
++    public static boolean hidesRead() {
++        return FemboyConfig.ghostHidesRead();
++    }
++
++    public static boolean hidesOnline() {
++        return FemboyConfig.ghostHidesOnline();
++    }
++
++    public static boolean hidesTyping() {
++        return FemboyConfig.ghostHidesTyping();
++    }
++
++    public static boolean markReadAfterSend() {
++        return FemboyConfig.ghostMarkReadAfterSend();
 +    }
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyGradient.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyGradient.java
@@ -27882,10 +27997,10 @@ index 77f94f76..773edad9 100644
          boolean[] forceBrowser = new boolean[]{false};
          boolean internalUri = isInternalUri(uri, forceBrowser);
 diff --git a/TMessagesProj/src/main/java/org/telegram/tgnet/ConnectionsManager.java b/TMessagesProj/src/main/java/org/telegram/tgnet/ConnectionsManager.java
-index 778af485..292484bf 100644
+index 778af485..6b846e37 100644
 --- a/TMessagesProj/src/main/java/org/telegram/tgnet/ConnectionsManager.java
 +++ b/TMessagesProj/src/main/java/org/telegram/tgnet/ConnectionsManager.java
-@@ -395,7 +395,28 @@ public class ConnectionsManager extends BaseController {
+@@ -395,7 +395,71 @@ public class ConnectionsManager extends BaseController {
          return requestToken;
      }
  
@@ -27912,10 +28027,53 @@ index 778af485..292484bf 100644
 +        } else {
 +            object = original;
 +        }
++
++        // FemboyGram ghost mode: hide read receipts, online status and typing.
++        if (org.telegram.femboy.FemboyGhost.active()) {
++            // One-shot allowance: after sending a message the chat may be marked read once.
++            if (org.telegram.femboy.FemboyGhost.markReadAfterSend()
++                    && (object instanceof TLRPC.TL_messages_sendMessage || object instanceof TLRPC.TL_messages_sendMedia)) {
++                org.telegram.femboy.FemboyGhost.allowNextRead(1);
++            }
++
++            // Typing: drop the packet entirely, no callback needed.
++            if (org.telegram.femboy.FemboyGhost.hidesTyping()
++                    && (object instanceof TLRPC.TL_messages_setTyping || object instanceof TLRPC.TL_messages_setEncryptedTyping)) {
++                return;
++            }
++
++            // Online: lie to the server about being offline.
++            if (org.telegram.femboy.FemboyGhost.hidesOnline() && object instanceof org.telegram.tgnet.tl.TL_account.updateStatus) {
++                ((org.telegram.tgnet.tl.TL_account.updateStatus) object).offline = true;
++            }
++
++            // Read receipts: answer locally with a fake result and never send the packet.
++            if (org.telegram.femboy.FemboyGhost.hidesRead()
++                    && !org.telegram.femboy.FemboyGhost.consumeReadAllowance()
++                    && (object instanceof TLRPC.TL_messages_readHistory
++                    || object instanceof TLRPC.TL_messages_readEncryptedHistory
++                    || object instanceof TLRPC.TL_messages_readDiscussion
++                    || object instanceof TLRPC.TL_messages_readMessageContents
++                    || object instanceof TLRPC.TL_channels_readHistory
++                    || object instanceof TLRPC.TL_channels_readMessageContents)) {
++                final TLRPC.TL_messages_affectedMessages fake = new TLRPC.TL_messages_affectedMessages();
++                fake.pts = -1;
++                fake.pts_count = 0;
++                try {
++                    if (onComplete != null) {
++                        onComplete.run(fake, null);
++                    }
++                } catch (Exception e) {
++                    FileLog.e(e);
++                }
++                return;
++            }
++        }
++
          if (BuildVars.LOGS_ENABLED) {
              FileLog.d("send request " + object + " with token = " + requestToken);
          }
-@@ -458,6 +479,12 @@ public class ConnectionsManager extends BaseController {
+@@ -458,6 +522,12 @@ public class ConnectionsManager extends BaseController {
                          FileLog.d("java received " + resp + (error != null ? " error = " + error : "") + " messageId = 0x" + Long.toHexString(requestMsgId));
                          FileLog.dumpResponseAndRequest(currentAccount, object, resp, error, requestMsgId, finalStartRequestTime, requestToken);
                      }
@@ -44303,10 +44461,10 @@ index 00000000..2f54a53f
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/FemboyStreamerActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/FemboyStreamerActivity.java
 new file mode 100644
-index 00000000..bb0a0136
+index 00000000..bf06d5bc
 --- /dev/null
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/FemboyStreamerActivity.java
-@@ -0,0 +1,104 @@
+@@ -0,0 +1,141 @@
 +package org.telegram.ui;
 +
 +import android.view.View;
@@ -44328,6 +44486,13 @@ index 00000000..bb0a0136
 +    private static final int ID_USERNAME = 3;
 +    private static final int ID_PROXY = 4;
 +    private static final int ID_SCREENSHOTS = 5;
++
++    private static final int ID_GHOST = 10;
++    private static final int ID_GHOST_READ = 11;
++    private static final int ID_GHOST_ONLINE = 12;
++    private static final int ID_GHOST_TYPING = 13;
++    private static final int ID_GHOST_OFFLINE = 14;
++    private static final int ID_GHOST_MARK_SEND = 15;
 +
 +    @Override
 +    protected CharSequence getTitle() {
@@ -44362,6 +44527,24 @@ index 00000000..bb0a0136
 +                    .setChecked(FemboyConfig.streamerHidesUsername()));
 +        }
 +        items.add(UItem.asShadow(null));
++
++        items.add(UItem.asHeader(LocaleController.getString(R.string.FemboyGhost)));
++        items.add(UItem.asCheck(ID_GHOST, LocaleController.getString(R.string.FemboyGhostOn))
++                .setChecked(FemboyConfig.ghostMode()));
++        if (FemboyConfig.ghostMode()) {
++            items.add(UItem.asCheck(ID_GHOST_READ, LocaleController.getString(R.string.FemboyGhostRead))
++                    .setChecked(FemboyConfig.ghostHidesRead()));
++            items.add(UItem.asCheck(ID_GHOST_ONLINE, LocaleController.getString(R.string.FemboyGhostOnline))
++                    .setChecked(FemboyConfig.ghostHidesOnline()));
++            items.add(UItem.asCheck(ID_GHOST_TYPING, LocaleController.getString(R.string.FemboyGhostTyping))
++                    .setChecked(FemboyConfig.ghostHidesTyping()));
++            items.add(UItem.asCheck(ID_GHOST_OFFLINE, LocaleController.getString(R.string.FemboyGhostOffline))
++                    .setChecked(FemboyConfig.ghostOfflineMarker()));
++            items.add(UItem.asCheck(ID_GHOST_MARK_SEND, LocaleController.getString(R.string.FemboyGhostMarkSend))
++                    .setChecked(FemboyConfig.ghostMarkReadAfterSend()));
++        }
++        items.add(UItem.asShadow(LocaleController.getString(R.string.FemboyGhostInfo)));
++
 +        items.add(UItem.asCheck(ID_SCREENSHOTS, LocaleController.getString(R.string.FemboyAnyScreenshots))
 +                .setChecked(FemboyConfig.anyScreenshots()));
 +        items.add(UItem.asShadow(LocaleController.getString(R.string.FemboyAnyScreenshotsInfo)));
@@ -44380,6 +44563,18 @@ index 00000000..bb0a0136
 +            FemboyConfig.setStreamerHidesOthers(!FemboyConfig.streamerHidesOthers());
 +        } else if (item.id == ID_USERNAME) {
 +            FemboyConfig.setStreamerHidesUsername(!FemboyConfig.streamerHidesUsername());
++        } else if (item.id == ID_GHOST) {
++            FemboyConfig.setGhostMode(!FemboyConfig.ghostMode());
++        } else if (item.id == ID_GHOST_READ) {
++            FemboyConfig.setGhostHidesRead(!FemboyConfig.ghostHidesRead());
++        } else if (item.id == ID_GHOST_ONLINE) {
++            FemboyConfig.setGhostHidesOnline(!FemboyConfig.ghostHidesOnline());
++        } else if (item.id == ID_GHOST_TYPING) {
++            FemboyConfig.setGhostHidesTyping(!FemboyConfig.ghostHidesTyping());
++        } else if (item.id == ID_GHOST_OFFLINE) {
++            FemboyConfig.setGhostOfflineMarker(!FemboyConfig.ghostOfflineMarker());
++        } else if (item.id == ID_GHOST_MARK_SEND) {
++            FemboyConfig.setGhostMarkReadAfterSend(!FemboyConfig.ghostMarkReadAfterSend());
 +        } else if (item.id == ID_SCREENSHOTS) {
 +            FemboyConfig.setAnyScreenshots(!FemboyConfig.anyScreenshots());
 +        } else {
@@ -80036,7 +80231,7 @@ index 03d0ba33..8ea6403e 100644
      <string name="English">Inglês</string>
      <string name="LanguageNameInEnglish">Portuguese (Brazil)</string>
 diff --git a/TMessagesProj/src/main/res/values-ru/strings.xml b/TMessagesProj/src/main/res/values-ru/strings.xml
-index 24c56292..0e317cba 100644
+index 24c56292..859b4516 100644
 --- a/TMessagesProj/src/main/res/values-ru/strings.xml
 +++ b/TMessagesProj/src/main/res/values-ru/strings.xml
 @@ -1,7 +1,7 @@
@@ -80049,7 +80244,7 @@ index 24c56292..0e317cba 100644
      <string name="LanguageName">Русский</string>
      <string name="English">Английский</string>
      <string name="LanguageNameInEnglish">Russian</string>
-@@ -263,4 +263,511 @@
+@@ -263,4 +263,519 @@
      <string name="RemindTodayAt">\'Отправить сегодня в\' HH:mm</string>
      <string name="RemindDayAt">\'Отправить\' d MMM \'в\' HH:mm</string>
      <string name="RemindDayYearAt">\'Напомнить\' d MMM yyyy \'в\' HH:mm</string>
@@ -80560,6 +80755,14 @@ index 24c56292..0e317cba 100644
 +    <string name="FemboyPluginReplacedRestart">Новые файлы на месте, но работающая версия осталась в памяти — выгрузить её нечем. Перезапустите, чтобы заработал новый код.</string>
 +    <string name="FemboyBadgeRow">FemboyGram</string>
 +    <string name="FemboyThemes">Темы FemboyGram</string>
++    <string name="FemboyGhost">Режим призрака</string>
++    <string name="FemboyGhostOn">Режим призрака</string>
++    <string name="FemboyGhostInfo">Скрывает прочитанное, онлайн и набор текста. Telegram может ограничить аккаунт за сокрытие активности.</string>
++    <string name="FemboyGhostRead">Не отправлять прочитанное</string>
++    <string name="FemboyGhostOnline">Всегда офлайн</string>
++    <string name="FemboyGhostTyping">Скрывать набор текста</string>
++    <string name="FemboyGhostOffline">Офлайн-маркер при включении</string>
++    <string name="FemboyGhostMarkSend">Отмечать прочитанным после отправки</string>
  </resources>
 \ No newline at end of file
 diff --git a/TMessagesProj/src/main/res/values-uk/strings.xml b/TMessagesProj/src/main/res/values-uk/strings.xml
@@ -80578,10 +80781,10 @@ index d4683443..5c8e724a 100644
      <string name="LanguageNameInEnglish">Ukrainian</string>
 diff --git a/TMessagesProj/src/main/res/values-zh/strings.xml b/TMessagesProj/src/main/res/values-zh/strings.xml
 new file mode 100644
-index 00000000..2e84e576
+index 00000000..254f7a39
 --- /dev/null
 +++ b/TMessagesProj/src/main/res/values-zh/strings.xml
-@@ -0,0 +1,510 @@
+@@ -0,0 +1,518 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<resources>
 +    <string name="FemboySettings">分支设置</string>
@@ -81091,6 +81294,14 @@ index 00000000..2e84e576
 +    <string name="FemboyPluginReplacedRestart">新文件已经就位，但正在运行的那一份还留在内存里——没办法把它卸下来。重启一下，新代码才会生效。</string>
 +    <string name="FemboyBadgeRow">FemboyGram</string>
 +    <string name="FemboyThemes">Femboy 主题</string>
++    <string name="FemboyGhost">幽灵模式</string>
++    <string name="FemboyGhostOn">幽灵模式</string>
++    <string name="FemboyGhostInfo">隐藏已读、在线状态和输入状态。Telegram 可能会限制隐藏活动的账号。</string>
++    <string name="FemboyGhostRead">不发送已读回执</string>
++    <string name="FemboyGhostOnline">始终离线</string>
++    <string name="FemboyGhostTyping">隐藏输入状态</string>
++    <string name="FemboyGhostOffline">开启时显示离线标记</string>
++    <string name="FemboyGhostMarkSend">发送后标记已读一次</string>
 +</resources>
 diff --git a/TMessagesProj/src/main/res/values/ids.xml b/TMessagesProj/src/main/res/values/ids.xml
 index cc49d135..d62afb57 100644
@@ -81109,7 +81320,7 @@ index cc49d135..d62afb57 100644
      <item name="menu_regular" type="id"/>
      <item name="menu_bold" type="id"/>
 diff --git a/TMessagesProj/src/main/res/values/strings.xml b/TMessagesProj/src/main/res/values/strings.xml
-index db9de755..74fcca42 100644
+index db9de755..c79e3d26 100644
 --- a/TMessagesProj/src/main/res/values/strings.xml
 +++ b/TMessagesProj/src/main/res/values/strings.xml
 @@ -1,7 +1,7 @@
@@ -81634,12 +81845,20 @@ index db9de755..74fcca42 100644
  
      <string name="RoundVideoSettings">Round Video</string>
      <string name="RoundVideoGeneral">Recorder</string>
-@@ -11630,4 +12135,6 @@
+@@ -11630,4 +12135,14 @@
      <string name="NoPaidMessagesTokenUsed">un1 used your QR code and can message you for free</string>
      <string name="NoPaidMessagesTokenUsedOut">You used the QR code of un1 and can message them for free</string>
      <string name="NoPaidMessagesTokenImported">You can now message **%1$s** for free.</string>
 +    <string name="FemboyBadgeRow">FemboyGram</string>
 +    <string name="FemboyThemes">Femboy themes</string>
++    <string name="FemboyGhost">Ghost mode</string>
++    <string name="FemboyGhostOn">Ghost mode</string>
++    <string name="FemboyGhostInfo">Hides read receipts, online status and typing. Telegram may restrict accounts that hide activity.</string>
++    <string name="FemboyGhostRead">Don\'t send read receipts</string>
++    <string name="FemboyGhostOnline">Appear offline</string>
++    <string name="FemboyGhostTyping">Hide typing</string>
++    <string name="FemboyGhostOffline">Offline marker when ghost is on</string>
++    <string name="FemboyGhostMarkSend">Mark chat read once after sending</string>
  </resources>
 diff --git a/TMessagesProj_App/build.gradle b/TMessagesProj_App/build.gradle
 index c581f3de..08a0b97d 100644

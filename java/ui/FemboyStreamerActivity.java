@@ -20,6 +20,13 @@ public class FemboyStreamerActivity extends UniversalFragment {
     private static final int ID_PROXY = 4;
     private static final int ID_SCREENSHOTS = 5;
 
+    private static final int ID_GHOST = 10;
+    private static final int ID_GHOST_READ = 11;
+    private static final int ID_GHOST_ONLINE = 12;
+    private static final int ID_GHOST_TYPING = 13;
+    private static final int ID_GHOST_OFFLINE = 14;
+    private static final int ID_GHOST_MARK_SEND = 15;
+
     @Override
     protected CharSequence getTitle() {
         return LocaleController.getString(R.string.FemboySecPrivacy);
@@ -53,6 +60,24 @@ public class FemboyStreamerActivity extends UniversalFragment {
                     .setChecked(FemboyConfig.streamerHidesUsername()));
         }
         items.add(UItem.asShadow(null));
+
+        items.add(UItem.asHeader(LocaleController.getString(R.string.FemboyGhost)));
+        items.add(UItem.asCheck(ID_GHOST, LocaleController.getString(R.string.FemboyGhostOn))
+                .setChecked(FemboyConfig.ghostMode()));
+        if (FemboyConfig.ghostMode()) {
+            items.add(UItem.asCheck(ID_GHOST_READ, LocaleController.getString(R.string.FemboyGhostRead))
+                    .setChecked(FemboyConfig.ghostHidesRead()));
+            items.add(UItem.asCheck(ID_GHOST_ONLINE, LocaleController.getString(R.string.FemboyGhostOnline))
+                    .setChecked(FemboyConfig.ghostHidesOnline()));
+            items.add(UItem.asCheck(ID_GHOST_TYPING, LocaleController.getString(R.string.FemboyGhostTyping))
+                    .setChecked(FemboyConfig.ghostHidesTyping()));
+            items.add(UItem.asCheck(ID_GHOST_OFFLINE, LocaleController.getString(R.string.FemboyGhostOffline))
+                    .setChecked(FemboyConfig.ghostOfflineMarker()));
+            items.add(UItem.asCheck(ID_GHOST_MARK_SEND, LocaleController.getString(R.string.FemboyGhostMarkSend))
+                    .setChecked(FemboyConfig.ghostMarkReadAfterSend()));
+        }
+        items.add(UItem.asShadow(LocaleController.getString(R.string.FemboyGhostInfo)));
+
         items.add(UItem.asCheck(ID_SCREENSHOTS, LocaleController.getString(R.string.FemboyAnyScreenshots))
                 .setChecked(FemboyConfig.anyScreenshots()));
         items.add(UItem.asShadow(LocaleController.getString(R.string.FemboyAnyScreenshotsInfo)));
@@ -71,6 +96,18 @@ public class FemboyStreamerActivity extends UniversalFragment {
             FemboyConfig.setStreamerHidesOthers(!FemboyConfig.streamerHidesOthers());
         } else if (item.id == ID_USERNAME) {
             FemboyConfig.setStreamerHidesUsername(!FemboyConfig.streamerHidesUsername());
+        } else if (item.id == ID_GHOST) {
+            FemboyConfig.setGhostMode(!FemboyConfig.ghostMode());
+        } else if (item.id == ID_GHOST_READ) {
+            FemboyConfig.setGhostHidesRead(!FemboyConfig.ghostHidesRead());
+        } else if (item.id == ID_GHOST_ONLINE) {
+            FemboyConfig.setGhostHidesOnline(!FemboyConfig.ghostHidesOnline());
+        } else if (item.id == ID_GHOST_TYPING) {
+            FemboyConfig.setGhostHidesTyping(!FemboyConfig.ghostHidesTyping());
+        } else if (item.id == ID_GHOST_OFFLINE) {
+            FemboyConfig.setGhostOfflineMarker(!FemboyConfig.ghostOfflineMarker());
+        } else if (item.id == ID_GHOST_MARK_SEND) {
+            FemboyConfig.setGhostMarkReadAfterSend(!FemboyConfig.ghostMarkReadAfterSend());
         } else if (item.id == ID_SCREENSHOTS) {
             FemboyConfig.setAnyScreenshots(!FemboyConfig.anyScreenshots());
         } else {

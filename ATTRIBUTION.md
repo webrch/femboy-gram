@@ -18,3 +18,7 @@ Pat-pat hand and sounds: PatPat mod by LopyMine (https://github.com/LopyMine/Pat
 
 Графика в `assets/branding/` и адаптивные иконки созданы для FemboyGram и
 основаны на предоставленных автором изображениях.
+
+## Режим призрака
+
+Логика сокрытия прочитанного, онлайн-статуса и набора текста перенесена из AyuGram4A (https://github.com/AyuGram/AyuGram4A, GPL-2.0), Copyright @Radolyn, 2023. Код адаптирован под FemboyGram.

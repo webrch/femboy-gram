@@ -131,6 +131,68 @@ gradle :TMessagesProj_AppStandalone:assembleAfatStandalone
 
 - Пример плагина: в архиве `femboy_example.marp` (и в `TMessagesProj`, и в `TMessagesProj_AppStandalone`) заменены id на `femboy.example`, автор на `синдзи`, иконка на `femboygram_alt.png`. Старый пример с `narezany` удалён из APK. Пересобранный APK залит в релиз v1.0 (70342917 байт), прямая ссылка прежняя.
 
+- Миграция плагина: `preinstallExample()` теперь удаляет старую папку `margelet.example` из данных приложения и сбрасывает флаг `plugin_example_done`, поэтому новый пример ставится даже при обновлении поверх старой версии. APK пересобран и залит в v1.0 (70342756 байт).
+
+
+### Итог сессии 23.11.2026 (вечер)
+
+**Состояние проекта:** FemboyGram 1.0 собран, выложен и работоспособен.
+- Репозиторий: https://github.com/webrch/femboy-gram (ветка `main`, чистая история, один коммит на старте + правки).
+- Релиз v1.0: https://github.com/webrch/femboy-gram/releases/tag/v1.0
+- APK: https://github.com/webrch/femboy-gram/releases/download/v1.0/FemboyGram-1.0.apk
+  (последняя сборка 70 342 756 байт, пакет `org.femboygram.app`).
+- Локальные копии: `FemboyGram.apk` в корне рабочей папки и в `_release/`.
+- Сборка проверялась неоднократно: `tools/build.sh` (bash + JDK 21 + SDK 36 + NDK 27.2.12479018),
+  последний раз BUILD SUCCESSFUL.
+
+**Что сделано в последнем заходе:**
+- Удалены старые брендовые картинки из `assets/`: `banner.png` (с надписью Margelet),
+  зелёные `logo.png`/`logo.svg`, `femboygram-badge-256.png`,
+  `femboygram-badge-glyph-256.png`, `femboygram-icon-1024.png`.
+- Найдена и исправлена настоящая причина «старого плагина»: пример ставился один раз
+  (`plugin_example_done`) и старая папка `margelet.example` оставалась в данных приложения.
+  Добавлена миграция в `FemboyPlugins.preinstallExample()` + `FemboyConfig.resetExamplePlugin()`.
+- `femboy_example.marp` в обоих ассетах: id `femboy.example`, автор «синдзи», иконка
+  из `femboygram_alt.png`. APK пересобран и перезалит в релиз.
+- Текст релиза обновлён (включая строку про автоматическую замену старого плагина).
+- GitHub-токен владельца использован через `gh auth setup-git`; после работы его лучше отозвать.
+
+**О проверке упоминаний старого бренда:**
+- В исходниках (`tg-src/.../src`, патче, java, python, docs) упоминаний Margy/Margelet/narezany нет.
+- Остались только в `AGENTS.md` (история замен), `FEATURES.md` (одно слово «нареза» в
+  историческом документе) и в regex `tools/check_refs.py` (он их и ищет).
+- В локальном `FemboyGram/.git` есть `upstream`-remote и старые коммиты с именами MargyGram —
+  на GitHub этого нет, там история чистая.
+
+**Следующий шаг — рекламное видео (обсуждалось, ещё не делалось):**
+- Для «рекламы как у Claude Code» нужно уточнить у владельца: подключён ли телефон
+  (`adb devices`), нужен ли живой screenrecord через `adb shell screenrecord` + `input tap`,
+  или достаточно motion-графики из иконок/скриншотов через ffmpeg; музыка — синтезировать
+  или дать лицензионный трек; формат 9:16 или 16:9; длина 15–30 сек.
+- Никаких файлов для видео пока не создано.
+
+**Пожелания владельца на будущее:** не упоминать чужие донаты и кредиты в публичных постах;
+релиз-пост уже согласован и опубликован в текст релиза.
+
+
+### Донат (добавить в следующем заходе по просьбе владельца)
+
+Нужно вернуть донат в форк, но уже с реквизитами владельца:
+- **ЮMoney:** https://yoomoney.ru/to/4100118861022194
+- **Звёзды Telegram:** аккаунт `9051996412` (ID Telegram)
+
+Что восстанавливать:
+- активити доната (раньше `MargeletDonateActivity`, теперь `FemboyDonateActivity`);
+- пункт меню в разделе настроек форка;
+- константы в `FemboyConfig` (`DONATE_YOOMONEY`, `DONATE_GIFT_USER`, при необходимости `DONATE_PAGE`);
+- строки на трёх языках (`values`, `values-ru`, `values-zh`);
+- deep-link `femboy://donate` в `FemboyScheme`, если он нужен.
+
+Исходную реализацию можно взять из истории upstream:
+`git show upstream/main:...` (файлы `MargeletDonateActivity.java`, `MargeletConfig.java`, строки),
+затем переименовать под FemboyGram и заменить реквизиты на указанные выше.
+Публично в постах упоминать только свой донат, без чужих кредитов.
+
 ## 4. Важные технические детали
 
 1. **Патч — источник истины.** Любая правка кода делается в `tg-src/`, потом:

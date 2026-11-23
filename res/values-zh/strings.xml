@@ -507,4 +507,12 @@
     <string name="FemboyPluginReplacedRestart">新文件已经就位，但正在运行的那一份还留在内存里——没办法把它卸下来。重启一下，新代码才会生效。</string>
     <string name="FemboyBadgeRow">FemboyGram</string>
     <string name="FemboyThemes">Femboy 主题</string>
+    <string name="FemboyGhost">幽灵模式</string>
+    <string name="FemboyGhostOn">幽灵模式</string>
+    <string name="FemboyGhostInfo">隐藏已读、在线状态和输入状态。Telegram 可能会限制隐藏活动的账号。</string>
+    <string name="FemboyGhostRead">不发送已读回执</string>
+    <string name="FemboyGhostOnline">始终离线</string>
+    <string name="FemboyGhostTyping">隐藏输入状态</string>
+    <string name="FemboyGhostOffline">开启时显示离线标记</string>
+    <string name="FemboyGhostMarkSend">发送后标记已读一次</string>
 </resources>

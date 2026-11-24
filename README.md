@@ -96,7 +96,6 @@ The apk lands in `TMessagesProj_AppStandalone/build/outputs/apk/afat/standalone/
 | `tools/` | icon generation and helper scripts |
 | `assets/branding/` | the FemboyGram artwork |
 | `ATTRIBUTION.md` | third-party bits that someone else made |
-| `AGENTS.md` | project notes for future sessions |
 
 ## Licence
 

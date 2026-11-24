@@ -95,7 +95,6 @@ APK появится в `TMessagesProj_AppStandalone/build/outputs/apk/afat/stan
 | `tools/` | генерация иконки и вспомогательные скрипты |
 | `assets/branding/` | графика FemboyGram |
 | `ATTRIBUTION.md` | чужое, что осталось в сборке |
-| `AGENTS.md` | заметки о проекте для будущих сессий |
 
 ## Лицензия
 

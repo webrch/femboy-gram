@@ -403,6 +403,17 @@ gradle :TMessagesProj_AppStandalone:assembleAfatStandalone
   только после одобрения владельцем; при публикации поднять и `APP_VERSION`, и
   `APP_VERSION_CODE`, иначе обновлялка не пришлёт уведомление.
 
+
+### Релиз 1.3 — опубликован (24.11.2026)
+
+После одобрения владельцем обе новые функции выложены отдельным релизом.
+- Тревожный код и 10 новых тем вошли в сборку.
+- `APP_VERSION = "1.3"`, `APP_VERSION_CODE=7244` -> versionCode **72449**.
+- `version.json` указывает на `https://github.com/webrch/femboy-gram/releases/download/v1.3/FemboyGram-1.3.apk`.
+- Релиз: https://github.com/webrch/femboy-gram/releases/tag/v1.3
+- APK 71 604 676 байт, исходники запушены в `main`.
+- Владелец проверил тревожный код на телефоне перед публикацией.
+
 ## 4. Важные технические детали
 
 1. **Патч — источник истины.** Любая правка кода делается в `tg-src/`, потом:

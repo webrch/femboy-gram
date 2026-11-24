@@ -29226,7 +29226,7 @@ index 00000000..c0b00222
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java
 new file mode 100644
-index 00000000..843c7d6f
+index 00000000..a82c25ff
 --- /dev/null
 +++ b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyConfig.java
 @@ -0,0 +1,593 @@
@@ -29272,7 +29272,7 @@ index 00000000..843c7d6f
 +     * 0.99, а не 1.0, нарочно: настоящая единица должна остаться свободной
 +     * под настоящий выпуск, а пререлиз обязан быть строго меньше её.
 +     */
-+    public static final String APP_VERSION = "1.2.3";
++    public static final String APP_VERSION = "1.3";
 +
 +    /**
 +     * Номер, который видит человек. У пререлизов 0.99.N он был «1.0.N»; с
@@ -30302,6 +30302,73 @@ index 00000000..3956cc5b
 +        // as a message written there without a reply does; with no reply at all it went to General
 +        params.replyToMsg = params.replyToTopMsg;
 +        params.replyQuote = null;
++    }
++}
+diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyDuress.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyDuress.java
+new file mode 100644
+index 00000000..3aa27527
+--- /dev/null
++++ b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyDuress.java
+@@ -0,0 +1,61 @@
++package org.telegram.femboy;
++
++import android.content.Context;
++import android.content.SharedPreferences;
++
++import org.telegram.messenger.ApplicationLoader;
++import org.telegram.messenger.MessagesController;
++import org.telegram.messenger.UserConfig;
++
++/**
++ * Duress code for the app passcode screen.
++ *
++ * Entering this code instead of the real passcode logs out every authorized
++ * account. The code is only consulted by PasscodeView while unlocking, so it
++ * cannot fire while the owner is setting a new passcode.
++ */
++public final class FemboyDuress {
++
++    private static final String PREFS = "femboy_duress";
++    private static final String KEY_CODE = "code";
++
++    private FemboyDuress() {
++    }
++
++    private static SharedPreferences prefs() {
++        return ApplicationLoader.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
++    }
++
++    public static String get() {
++        return prefs().getString(KEY_CODE, "");
++    }
++
++    public static void set(String code) {
++        prefs().edit().putString(KEY_CODE, code == null ? "" : code).apply();
++    }
++
++    public static boolean isSet() {
++        return !get().isEmpty();
++    }
++
++    public static boolean matches(String code) {
++        return isSet() && code != null && get().equals(code);
++    }
++
++    /** Called from the unlock screen when the duress code was entered. */
++    public static void logoutEverywhere() {
++        final int[] accounts = new int[UserConfig.MAX_ACCOUNT_COUNT];
++        int count = 0;
++        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
++            if (UserConfig.getInstance(a).isClientActivated()) {
++                accounts[count++] = a;
++            }
++        }
++        for (int i = 0; i < count; i++) {
++            try {
++                MessagesController.getInstance(accounts[i]).performLogout(1);
++            } catch (Throwable ignored) {
++            }
++        }
 +    }
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/femboy/FemboyEdits.java b/TMessagesProj/src/main/java/org/telegram/femboy/FemboyEdits.java
@@ -47235,6 +47302,32 @@ index e6e23df8..f2958268 100644
              }
          }
  
+diff --git a/TMessagesProj/src/main/java/org/telegram/ui/Components/PasscodeView.java b/TMessagesProj/src/main/java/org/telegram/ui/Components/PasscodeView.java
+index 2b754d60..02ad506f 100644
+--- a/TMessagesProj/src/main/java/org/telegram/ui/Components/PasscodeView.java
++++ b/TMessagesProj/src/main/java/org/telegram/ui/Components/PasscodeView.java
+@@ -69,6 +69,7 @@ import org.telegram.messenger.FingerprintController;
+ import org.telegram.messenger.LocaleController;
+ import org.telegram.messenger.NotificationCenter;
+ import org.telegram.messenger.R;
++import org.telegram.femboy.FemboyDuress;
+ import org.telegram.messenger.SharedConfig;
+ import org.telegram.messenger.support.fingerprint.FingerprintManagerCompat;
+ import org.telegram.ui.ActionBar.Theme;
+@@ -1107,6 +1108,13 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
+                 onPasscodeError();
+                 return;
+             }
++            // FemboyGram: the duress code unlocks nothing and logs out every account.
++            if (FemboyDuress.matches(password)) {
++                FemboyDuress.logoutEverywhere();
++                passwordEditText.setText("");
++                passwordEditText2.eraseAllCharacters(true);
++                return;
++            }
+             if (!SharedConfig.checkPasscode(password)) {
+                 SharedConfig.increaseBadPasscodeTries();
+                 if (SharedConfig.passcodeRetryInMs > 0) {
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/Components/RadialProgress.java b/TMessagesProj/src/main/java/org/telegram/ui/Components/RadialProgress.java
 index b69fb8e2..3da6532b 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/Components/RadialProgress.java
@@ -60330,10 +60423,10 @@ index 00000000..652ce118
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/FemboySeedPicker.java b/TMessagesProj/src/main/java/org/telegram/ui/FemboySeedPicker.java
 new file mode 100644
-index 00000000..b30ad310
+index 00000000..731c0d30
 --- /dev/null
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/FemboySeedPicker.java
-@@ -0,0 +1,112 @@
+@@ -0,0 +1,155 @@
 +package org.telegram.ui;
 +
 +import static org.telegram.messenger.AndroidUtilities.dp;
@@ -60343,10 +60436,13 @@ index 00000000..b30ad310
 +import android.graphics.Canvas;
 +import android.graphics.Paint;
 +import android.graphics.RectF;
++import android.os.Build;
 +import android.view.View;
 +import android.widget.HorizontalScrollView;
 +import android.widget.LinearLayout;
 +
++import org.telegram.messenger.LocaleController;
++import org.telegram.messenger.R;
 +import org.telegram.femboy.FemboyYou;
 +import org.telegram.ui.ActionBar.Theme;
 +import org.telegram.ui.Components.LayoutHelper;
@@ -60367,6 +60463,7 @@ index 00000000..b30ad310
 +     */
 +    private static final int[] SEEDS = {
 +            0,
++            // Originally requested pastel presets.
 +            0xFFFF9ECD, // сакура
 +            0xFFC9A6FF, // лаванда
 +            0xFF9FD0FF, // небесный
@@ -60374,6 +60471,39 @@ index 00000000..b30ad310
 +            0xFFB9A6E8, // ирис
 +            0xFFA8D8EA, // лёд
 +            0xFFF3C6DE, // персиковая роза
++            // Ten new presets from the owner (24.11.2026).
++            0xFFFFB59D, // Peach — нежный персиковый
++            0xFFEED9B7, // Vanilla — молочно-бежевый
++            0xFFFFAEC9, // Strawberry Milk — тёплый розовый
++            0xFFB7D5AC, // Matcha — приглушённый пастельно-зелёный
++            0xFFA8E6CF, // Mint — мятно-бирюзовый
++            0xFFC8A2C8, // Wisteria — пыльный сиренево-розовый
++            0xFFC4A484, // Mocha — кофейно-пудровый
++            0xFFCFE3C6, // Pistachio — светлый Matcha
++            0xFFFFD1BA, // Apricot — мягкий Peach
++            0xFFC7F0E0, // Seafoam — светло-мятный
++    };
++
++    /** Подписи кружков для доступности и подсказки при долгом нажатии. */
++    private static final int[] NAMES = {
++            R.string.FemboyThemeFromWallpaper,
++            R.string.FemboyThemeSakura,
++            R.string.FemboyThemeLavender,
++            R.string.FemboyThemeSky,
++            R.string.FemboyThemePaleRose,
++            R.string.FemboyThemeIris,
++            R.string.FemboyThemeIce,
++            R.string.FemboyThemePeachRose,
++            R.string.FemboyThemePeach,
++            R.string.FemboyThemeVanilla,
++            R.string.FemboyThemeStrawberryMilk,
++            R.string.FemboyThemeMatcha,
++            R.string.FemboyThemeMint,
++            R.string.FemboyThemeWisteria,
++            R.string.FemboyThemeMocha,
++            R.string.FemboyThemePistachio,
++            R.string.FemboyThemeApricot,
++            R.string.FemboyThemeSeafoam,
 +    };
 +
 +    public FemboySeedPicker(Context context, Runnable picked) {
@@ -60381,8 +60511,10 @@ index 00000000..b30ad310
 +        setHorizontalScrollBarEnabled(false);
 +        final LinearLayout row = new LinearLayout(context);
 +        row.setPadding(dp(12), dp(10), dp(12), dp(10));
-+        for (int seed : SEEDS) {
-+            final Swatch swatch = new Swatch(context, seed);
++        for (int i = 0; i < SEEDS.length; i++) {
++            final int seed = SEEDS[i];
++            final Swatch swatch = new Swatch(context, seed,
++                    LocaleController.getString(NAMES[i]));
 +            swatch.setOnClickListener(v -> {
 +                if (FemboyYou.seed() != seed) {
 +                    FemboyYou.setSeed(seed);
@@ -60411,10 +60543,14 @@ index 00000000..b30ad310
 +        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
 +        private final RectF rect = new RectF();
 +
-+        Swatch(Context context, int seed) {
++        Swatch(Context context, int seed, String name) {
 +            super(context);
 +            this.seed = seed;
 +            this.colors = FemboyYou.swatch(seed);
++            setContentDescription(name);
++            if (Build.VERSION.SDK_INT >= 26) {
++                setTooltipText(name);
++            }
 +        }
 +
 +        @Override
@@ -63797,15 +63933,17 @@ index 00000000..015890bd
 +}
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/FemboyUpdatesActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/FemboyUpdatesActivity.java
 new file mode 100644
-index 00000000..f3a2e4d3
+index 00000000..0aec9ef3
 --- /dev/null
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/FemboyUpdatesActivity.java
-@@ -0,0 +1,278 @@
+@@ -0,0 +1,322 @@
 +package org.telegram.ui;
 +
 +import android.view.View;
++import android.widget.EditText;
 +
 +import org.telegram.femboy.FemboyConfig;
++import org.telegram.femboy.FemboyDuress;
 +import org.telegram.femboy.FemboyPlugins;
 +import org.telegram.femboy.FemboyPluginHost;
 +import org.telegram.ui.ActionBar.AlertDialog;
@@ -63815,6 +63953,7 @@ index 00000000..f3a2e4d3
 +import org.telegram.messenger.LocaleController;
 +import org.telegram.messenger.NotificationCenter;
 +import org.telegram.messenger.R;
++import org.telegram.messenger.SharedConfig;
 +import org.telegram.ui.Components.BulletinFactory;
 +import org.telegram.ui.Components.UItem;
 +import org.telegram.ui.Components.UniversalAdapter;
@@ -63868,6 +64007,7 @@ index 00000000..f3a2e4d3
 +    private static final int ID_BADGE = 1009;
 +    private static final int ID_VOICE = 1010;
 +    private static final int ID_HIDDEN = 1011;
++    private static final int ID_DURESS = 1012;
 +
 +    @Override
 +    protected void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
@@ -63891,6 +64031,9 @@ index 00000000..f3a2e4d3
 +                LocaleController.getString(R.string.FemboyVoiceTitle), LocaleController.getString(R.string.FemboyVoiceRow)));
 +        items.add(FemboyRowCell.Factory.of(ID_HIDDEN, R.drawable.femboy_ic_visibility_off,
 +                LocaleController.getString(R.string.FemboyHiddenTitle), LocaleController.getString(R.string.FemboyHiddenRow)));
++        items.add(FemboyRowCell.Factory.of(ID_DURESS, R.drawable.outline_header_lock_24,
++                LocaleController.getString(R.string.FemboyDuressTitle), LocaleController.getString(
++                        FemboyDuress.isSet() ? R.string.FemboyDuressSetShort : R.string.FemboyDuressRow)));
 +        // «Звук» появляется, только когда мяуканье уже услышали
 +        if (FemboyConfig.meowHeard()) {
 +            items.add(FemboyRowCell.Factory.of(ID_SOUND, R.drawable.femboy_ic_pets, LocaleController.getString(R.string.FemboyChime), LocaleController.getString(R.string.FemboySoundInfo)));
@@ -63937,7 +64080,44 @@ index 00000000..f3a2e4d3
 +            case ID_HIDDEN:
 +                presentFragment(new FemboyHiddenChatsActivity());
 +                break;
++            case ID_DURESS:
++                showDuressDialog();
++                break;
 +        }
++    }
++
++    /** Тревожный код: работает только когда стоит пароль на приложение. */
++    private void showDuressDialog() {
++        if (SharedConfig.passcodeHash.isEmpty()) {
++            BulletinFactory.of(this).createSimpleBulletin(org.telegram.messenger.R.raw.info,
++                    LocaleController.getString(R.string.FemboyDuressNeedsPasscode)).show();
++            return;
++        }
++        final EditText input = new EditText(getContext());
++        input.setSingleLine(true);
++        input.setText(FemboyDuress.get());
++        input.setSelection(input.getText().length());
++        input.setHint(LocaleController.getString(R.string.FemboyDuressHint));
++        final AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
++        builder.setTitle(LocaleController.getString(R.string.FemboyDuressTitle));
++        builder.setMessage(LocaleController.getString(R.string.FemboyDuressAbout));
++        builder.setView(input);
++        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
++        if (FemboyDuress.isSet()) {
++            builder.setNeutralButton(LocaleController.getString(R.string.FemboyDuressClear), (dialog, which) -> {
++                FemboyDuress.set("");
++                listView.adapter.update(true);
++                BulletinFactory.of(this).createSimpleBulletin(org.telegram.messenger.R.raw.info,
++                        LocaleController.getString(R.string.FemboyDuressCleared)).show();
++            });
++        }
++        builder.setPositiveButton(LocaleController.getString(R.string.Save), (dialog, which) -> {
++            FemboyDuress.set(input.getText().toString().trim());
++            listView.adapter.update(true);
++            BulletinFactory.of(this).createSimpleBulletin(org.telegram.messenger.R.raw.info,
++                    LocaleController.getString(R.string.FemboyDuressSaved)).show();
++        });
++        builder.show();
 +    }
 +
 +    /** Голосовой ченджер теперь живёт в плагине — открываем его настройки. */
@@ -108231,7 +108411,7 @@ index 03d0ba33..8ea6403e 100644
      <string name="English">Inglês</string>
      <string name="LanguageNameInEnglish">Portuguese (Brazil)</string>
 diff --git a/TMessagesProj/src/main/res/values-ru/strings.xml b/TMessagesProj/src/main/res/values-ru/strings.xml
-index 24c56292..7282d09a 100644
+index 24c56292..b6d4dd4e 100644
 --- a/TMessagesProj/src/main/res/values-ru/strings.xml
 +++ b/TMessagesProj/src/main/res/values-ru/strings.xml
 @@ -1,7 +1,7 @@
@@ -108244,7 +108424,7 @@ index 24c56292..7282d09a 100644
      <string name="LanguageName">Русский</string>
      <string name="English">Английский</string>
      <string name="LanguageNameInEnglish">Russian</string>
-@@ -263,4 +263,577 @@
+@@ -263,4 +263,604 @@
      <string name="RemindTodayAt">\'Отправить сегодня в\' HH:mm</string>
      <string name="RemindDayAt">\'Отправить\' d MMM \'в\' HH:mm</string>
      <string name="RemindDayYearAt">\'Напомнить\' d MMM yyyy \'в\' HH:mm</string>
@@ -108821,6 +109001,33 @@ index 24c56292..7282d09a 100644
 +    <string name="FemboyHiddenConcealed">Скрытые чаты снова спрятаны</string>
 +    <string name="FemboyHiddenHideChat">Скрыть чат</string>
 +    <string name="FemboyHiddenUnhideChat">Вернуть чат</string>
++    <string name="FemboyThemeFromWallpaper">Из обоев</string>
++    <string name="FemboyThemeSakura">Сакура</string>
++    <string name="FemboyThemeLavender">Лаванда</string>
++    <string name="FemboyThemeSky">Небесный</string>
++    <string name="FemboyThemePaleRose">Бледная роза</string>
++    <string name="FemboyThemeIris">Ирис</string>
++    <string name="FemboyThemeIce">Лёд</string>
++    <string name="FemboyThemePeachRose">Персиковая роза</string>
++    <string name="FemboyThemePeach">Персик</string>
++    <string name="FemboyThemeVanilla">Ваниль</string>
++    <string name="FemboyThemeStrawberryMilk">Клубничное молоко</string>
++    <string name="FemboyThemeMatcha">Матча</string>
++    <string name="FemboyThemeMint">Мята</string>
++    <string name="FemboyThemeWisteria">Глициния</string>
++    <string name="FemboyThemeMocha">Мокка</string>
++    <string name="FemboyThemePistachio">Фисташка</string>
++    <string name="FemboyThemeApricot">Абрикос</string>
++    <string name="FemboyThemeSeafoam">Морская пена</string>
++    <string name="FemboyDuressTitle">Тревожный код</string>
++    <string name="FemboyDuressRow">Выйти из всех аккаунтов по секретному коду</string>
++    <string name="FemboyDuressSetShort">Включён — введите вместо пароля</string>
++    <string name="FemboyDuressAbout">Работает только когда стоит пароль на приложение. Если ввести этот код вместо настоящего пароля, приложение выйдет из всех аккаунтов и покажет экран входа.</string>
++    <string name="FemboyDuressHint">Код</string>
++    <string name="FemboyDuressNeedsPasscode">Сначала включите пароль на приложение в настройках приватности Telegram</string>
++    <string name="FemboyDuressClear">Очистить</string>
++    <string name="FemboyDuressSaved">Тревожный код сохранён</string>
++    <string name="FemboyDuressCleared">Тревожный код удалён</string>
  </resources>
 \ No newline at end of file
 diff --git a/TMessagesProj/src/main/res/values-uk/strings.xml b/TMessagesProj/src/main/res/values-uk/strings.xml
@@ -108839,10 +109046,10 @@ index d4683443..5c8e724a 100644
      <string name="LanguageNameInEnglish">Ukrainian</string>
 diff --git a/TMessagesProj/src/main/res/values-zh/strings.xml b/TMessagesProj/src/main/res/values-zh/strings.xml
 new file mode 100644
-index 00000000..8d137183
+index 00000000..91885599
 --- /dev/null
 +++ b/TMessagesProj/src/main/res/values-zh/strings.xml
-@@ -0,0 +1,576 @@
+@@ -0,0 +1,603 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<resources>
 +    <string name="FemboySettings">分支设置</string>
@@ -109418,6 +109625,33 @@ index 00000000..8d137183
 +    <string name="FemboyHiddenConcealed">隐藏聊天已重新隐藏</string>
 +    <string name="FemboyHiddenHideChat">隐藏聊天</string>
 +    <string name="FemboyHiddenUnhideChat">取消隐藏</string>
++    <string name="FemboyThemeFromWallpaper">来自壁纸</string>
++    <string name="FemboyThemeSakura">樱花</string>
++    <string name="FemboyThemeLavender">薰衣草</string>
++    <string name="FemboyThemeSky">天空</string>
++    <string name="FemboyThemePaleRose">淡玫瑰</string>
++    <string name="FemboyThemeIris">鸢尾</string>
++    <string name="FemboyThemeIce">冰</string>
++    <string name="FemboyThemePeachRose">蜜桃玫瑰</string>
++    <string name="FemboyThemePeach">蜜桃</string>
++    <string name="FemboyThemeVanilla">香草</string>
++    <string name="FemboyThemeStrawberryMilk">草莓牛奶</string>
++    <string name="FemboyThemeMatcha">抹茶</string>
++    <string name="FemboyThemeMint">薄荷</string>
++    <string name="FemboyThemeWisteria">紫藤</string>
++    <string name="FemboyThemeMocha">摩卡</string>
++    <string name="FemboyThemePistachio">开心果</string>
++    <string name="FemboyThemeApricot">杏子</string>
++    <string name="FemboyThemeSeafoam">海沫</string>
++    <string name="FemboyDuressTitle">求救码</string>
++    <string name="FemboyDuressRow">用秘密代码退出所有账号</string>
++    <string name="FemboyDuressSetShort">已启用 — 用它代替密码输入</string>
++    <string name="FemboyDuressAbout">仅在设置了应用密码时生效。输入此代码代替真实密码，将退出所有账号并返回登录界面。</string>
++    <string name="FemboyDuressHint">代码</string>
++    <string name="FemboyDuressNeedsPasscode">请先在 Telegram 隐私设置中开启应用密码</string>
++    <string name="FemboyDuressClear">清除</string>
++    <string name="FemboyDuressSaved">求救码已保存</string>
++    <string name="FemboyDuressCleared">求救码已清除</string>
 +</resources>
 diff --git a/TMessagesProj/src/main/res/values/ids.xml b/TMessagesProj/src/main/res/values/ids.xml
 index cc49d135..d62afb57 100644
@@ -109436,7 +109670,7 @@ index cc49d135..d62afb57 100644
      <item name="menu_regular" type="id"/>
      <item name="menu_bold" type="id"/>
 diff --git a/TMessagesProj/src/main/res/values/strings.xml b/TMessagesProj/src/main/res/values/strings.xml
-index db9de755..a6930b28 100644
+index db9de755..050431ea 100644
 --- a/TMessagesProj/src/main/res/values/strings.xml
 +++ b/TMessagesProj/src/main/res/values/strings.xml
 @@ -1,7 +1,7 @@
@@ -109961,7 +110195,7 @@ index db9de755..a6930b28 100644
  
      <string name="RoundVideoSettings">Round Video</string>
      <string name="RoundVideoGeneral">Recorder</string>
-@@ -11630,4 +12135,72 @@
+@@ -11630,4 +12135,99 @@
      <string name="NoPaidMessagesTokenUsed">un1 used your QR code and can message you for free</string>
      <string name="NoPaidMessagesTokenUsedOut">You used the QR code of un1 and can message them for free</string>
      <string name="NoPaidMessagesTokenImported">You can now message **%1$s** for free.</string>
@@ -110033,6 +110267,33 @@ index db9de755..a6930b28 100644
 +    <string name="FemboyHiddenConcealed">Hidden chats are hidden again</string>
 +    <string name="FemboyHiddenHideChat">Hide chat</string>
 +    <string name="FemboyHiddenUnhideChat">Unhide chat</string>
++    <string name="FemboyThemeFromWallpaper">From wallpaper</string>
++    <string name="FemboyThemeSakura">Sakura</string>
++    <string name="FemboyThemeLavender">Lavender</string>
++    <string name="FemboyThemeSky">Sky</string>
++    <string name="FemboyThemePaleRose">Pale rose</string>
++    <string name="FemboyThemeIris">Iris</string>
++    <string name="FemboyThemeIce">Ice</string>
++    <string name="FemboyThemePeachRose">Peach rose</string>
++    <string name="FemboyThemePeach">Peach</string>
++    <string name="FemboyThemeVanilla">Vanilla</string>
++    <string name="FemboyThemeStrawberryMilk">Strawberry Milk</string>
++    <string name="FemboyThemeMatcha">Matcha</string>
++    <string name="FemboyThemeMint">Mint</string>
++    <string name="FemboyThemeWisteria">Wisteria</string>
++    <string name="FemboyThemeMocha">Mocha</string>
++    <string name="FemboyThemePistachio">Pistachio</string>
++    <string name="FemboyThemeApricot">Apricot</string>
++    <string name="FemboyThemeSeafoam">Seafoam</string>
++    <string name="FemboyDuressTitle">Duress code</string>
++    <string name="FemboyDuressRow">Log out of all accounts with a secret code</string>
++    <string name="FemboyDuressSetShort">Enabled - enter it instead of the passcode</string>
++    <string name="FemboyDuressAbout">Works only when an app passcode is set. Entering this code instead of the real passcode logs you out of every account and returns you to the login screen.</string>
++    <string name="FemboyDuressHint">Code</string>
++    <string name="FemboyDuressNeedsPasscode">First enable an app passcode in Telegram privacy settings</string>
++    <string name="FemboyDuressClear">Clear</string>
++    <string name="FemboyDuressSaved">Duress code saved</string>
++    <string name="FemboyDuressCleared">Duress code cleared</string>
  </resources>
 diff --git a/TMessagesProj_App/build.gradle b/TMessagesProj_App/build.gradle
 index c581f3de..08a0b97d 100644
@@ -144202,7 +144463,7 @@ index f7c8fcb7..b4cc76fc 100644
  }
  repositories {
 diff --git a/gradle.properties b/gradle.properties
-index 4a5efa19..d8c891c1 100644
+index 4a5efa19..cf054cee 100644
 --- a/gradle.properties
 +++ b/gradle.properties
 @@ -13,9 +13,9 @@
@@ -144210,7 +144471,7 @@ index 4a5efa19..d8c891c1 100644
  # org.gradle.parallel=true
  #Sat Mar 12 05:53:50 MSK 2016
 -APP_VERSION_CODE=7237
-+APP_VERSION_CODE=7243
++APP_VERSION_CODE=7244
  APP_VERSION_NAME=13.1.1
 -APP_PACKAGE=org.telegram.messenger
 +APP_PACKAGE=org.femboygram.app

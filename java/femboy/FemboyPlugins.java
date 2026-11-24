@@ -392,7 +392,9 @@ public class FemboyPlugins {
      * Зовётся ДО FemboyHookEngine.start(), иначе хуки не поднимутся до рестарта.
      */
     public static void preinstallVoice() {
-        if (!FemboyConfig.claimVoicePlugin()) {
+        final boolean first = FemboyConfig.claimVoicePlugin();
+        final boolean migrated = FemboyConfig.claimVoiceRustPlugin();
+        if (!first && !migrated) {
             return;
         }
         try {

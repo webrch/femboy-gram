@@ -7,10 +7,13 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.os.Build;
 import android.view.View;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 
+import org.telegram.messenger.LocaleController;
+import org.telegram.messenger.R;
 import org.telegram.femboy.FemboyYou;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.LayoutHelper;
@@ -31,6 +34,7 @@ public class FemboySeedPicker extends HorizontalScrollView {
      */
     private static final int[] SEEDS = {
             0,
+            // Originally requested pastel presets.
             0xFFFF9ECD, // сакура
             0xFFC9A6FF, // лаванда
             0xFF9FD0FF, // небесный
@@ -38,6 +42,39 @@ public class FemboySeedPicker extends HorizontalScrollView {
             0xFFB9A6E8, // ирис
             0xFFA8D8EA, // лёд
             0xFFF3C6DE, // персиковая роза
+            // Ten new presets from the owner (24.11.2026).
+            0xFFFFB59D, // Peach — нежный персиковый
+            0xFFEED9B7, // Vanilla — молочно-бежевый
+            0xFFFFAEC9, // Strawberry Milk — тёплый розовый
+            0xFFB7D5AC, // Matcha — приглушённый пастельно-зелёный
+            0xFFA8E6CF, // Mint — мятно-бирюзовый
+            0xFFC8A2C8, // Wisteria — пыльный сиренево-розовый
+            0xFFC4A484, // Mocha — кофейно-пудровый
+            0xFFCFE3C6, // Pistachio — светлый Matcha
+            0xFFFFD1BA, // Apricot — мягкий Peach
+            0xFFC7F0E0, // Seafoam — светло-мятный
+    };
+
+    /** Подписи кружков для доступности и подсказки при долгом нажатии. */
+    private static final int[] NAMES = {
+            R.string.FemboyThemeFromWallpaper,
+            R.string.FemboyThemeSakura,
+            R.string.FemboyThemeLavender,
+            R.string.FemboyThemeSky,
+            R.string.FemboyThemePaleRose,
+            R.string.FemboyThemeIris,
+            R.string.FemboyThemeIce,
+            R.string.FemboyThemePeachRose,
+            R.string.FemboyThemePeach,
+            R.string.FemboyThemeVanilla,
+            R.string.FemboyThemeStrawberryMilk,
+            R.string.FemboyThemeMatcha,
+            R.string.FemboyThemeMint,
+            R.string.FemboyThemeWisteria,
+            R.string.FemboyThemeMocha,
+            R.string.FemboyThemePistachio,
+            R.string.FemboyThemeApricot,
+            R.string.FemboyThemeSeafoam,
     };
 
     public FemboySeedPicker(Context context, Runnable picked) {
@@ -45,8 +82,10 @@ public class FemboySeedPicker extends HorizontalScrollView {
         setHorizontalScrollBarEnabled(false);
         final LinearLayout row = new LinearLayout(context);
         row.setPadding(dp(12), dp(10), dp(12), dp(10));
-        for (int seed : SEEDS) {
-            final Swatch swatch = new Swatch(context, seed);
+        for (int i = 0; i < SEEDS.length; i++) {
+            final int seed = SEEDS[i];
+            final Swatch swatch = new Swatch(context, seed,
+                    LocaleController.getString(NAMES[i]));
             swatch.setOnClickListener(v -> {
                 if (FemboyYou.seed() != seed) {
                     FemboyYou.setSeed(seed);
@@ -75,10 +114,14 @@ public class FemboySeedPicker extends HorizontalScrollView {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final RectF rect = new RectF();
 
-        Swatch(Context context, int seed) {
+        Swatch(Context context, int seed, String name) {
             super(context);
             this.seed = seed;
             this.colors = FemboyYou.swatch(seed);
+            setContentDescription(name);
+            if (Build.VERSION.SDK_INT >= 26) {
+                setTooltipText(name);
+            }
         }
 
         @Override

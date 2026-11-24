@@ -1,8 +1,10 @@
 package org.telegram.ui;
 
 import android.view.View;
+import android.widget.EditText;
 
 import org.telegram.femboy.FemboyConfig;
+import org.telegram.femboy.FemboyDuress;
 import org.telegram.femboy.FemboyPlugins;
 import org.telegram.femboy.FemboyPluginHost;
 import org.telegram.ui.ActionBar.AlertDialog;
@@ -12,6 +14,7 @@ import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
+import org.telegram.messenger.SharedConfig;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.UItem;
 import org.telegram.ui.Components.UniversalAdapter;
@@ -65,6 +68,7 @@ public class FemboyUpdatesActivity extends UniversalFragment {
     private static final int ID_BADGE = 1009;
     private static final int ID_VOICE = 1010;
     private static final int ID_HIDDEN = 1011;
+    private static final int ID_DURESS = 1012;
 
     @Override
     protected void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
@@ -88,6 +92,9 @@ public class FemboyUpdatesActivity extends UniversalFragment {
                 LocaleController.getString(R.string.FemboyVoiceTitle), LocaleController.getString(R.string.FemboyVoiceRow)));
         items.add(FemboyRowCell.Factory.of(ID_HIDDEN, R.drawable.femboy_ic_visibility_off,
                 LocaleController.getString(R.string.FemboyHiddenTitle), LocaleController.getString(R.string.FemboyHiddenRow)));
+        items.add(FemboyRowCell.Factory.of(ID_DURESS, R.drawable.outline_header_lock_24,
+                LocaleController.getString(R.string.FemboyDuressTitle), LocaleController.getString(
+                        FemboyDuress.isSet() ? R.string.FemboyDuressSetShort : R.string.FemboyDuressRow)));
         // «Звук» появляется, только когда мяуканье уже услышали
         if (FemboyConfig.meowHeard()) {
             items.add(FemboyRowCell.Factory.of(ID_SOUND, R.drawable.femboy_ic_pets, LocaleController.getString(R.string.FemboyChime), LocaleController.getString(R.string.FemboySoundInfo)));
@@ -134,7 +141,44 @@ public class FemboyUpdatesActivity extends UniversalFragment {
             case ID_HIDDEN:
                 presentFragment(new FemboyHiddenChatsActivity());
                 break;
+            case ID_DURESS:
+                showDuressDialog();
+                break;
         }
+    }
+
+    /** Тревожный код: работает только когда стоит пароль на приложение. */
+    private void showDuressDialog() {
+        if (SharedConfig.passcodeHash.isEmpty()) {
+            BulletinFactory.of(this).createSimpleBulletin(org.telegram.messenger.R.raw.info,
+                    LocaleController.getString(R.string.FemboyDuressNeedsPasscode)).show();
+            return;
+        }
+        final EditText input = new EditText(getContext());
+        input.setSingleLine(true);
+        input.setText(FemboyDuress.get());
+        input.setSelection(input.getText().length());
+        input.setHint(LocaleController.getString(R.string.FemboyDuressHint));
+        final AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+        builder.setTitle(LocaleController.getString(R.string.FemboyDuressTitle));
+        builder.setMessage(LocaleController.getString(R.string.FemboyDuressAbout));
+        builder.setView(input);
+        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        if (FemboyDuress.isSet()) {
+            builder.setNeutralButton(LocaleController.getString(R.string.FemboyDuressClear), (dialog, which) -> {
+                FemboyDuress.set("");
+                listView.adapter.update(true);
+                BulletinFactory.of(this).createSimpleBulletin(org.telegram.messenger.R.raw.info,
+                        LocaleController.getString(R.string.FemboyDuressCleared)).show();
+            });
+        }
+        builder.setPositiveButton(LocaleController.getString(R.string.Save), (dialog, which) -> {
+            FemboyDuress.set(input.getText().toString().trim());
+            listView.adapter.update(true);
+            BulletinFactory.of(this).createSimpleBulletin(org.telegram.messenger.R.raw.info,
+                    LocaleController.getString(R.string.FemboyDuressSaved)).show();
+        });
+        builder.show();
     }
 
     /** Голосовой ченджер теперь живёт в плагине — открываем его настройки. */

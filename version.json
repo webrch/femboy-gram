@@ -1,7 +1,7 @@
 {
-  "version": "1.2.3",
-  "apk": "https://github.com/webrch/femboy-gram/releases/download/v1.2.2/FemboyGram-1.2.2.apk",
-  "about": "FemboyGram: voice changer rebuilt as a built-in plugin, update banner fixed.",
-  "about_ru": "FemboyGram: войс-ченджер переделан в встроенный плагин, уведомление об обновлении исправлено.",
-  "about_zh": "FemboyGram：变声器改为内置插件，更新提示已修复。"
+  "version": "1.3",
+  "apk": "https://github.com/webrch/femboy-gram/releases/download/v1.3/FemboyGram-1.3.apk",
+  "about": "FemboyGram 1.3: 10 new pastel themes and a duress code to log out of all accounts.",
+  "about_ru": "FemboyGram 1.3: 10 новых пастельных тем и тревожный код для выхода из всех аккаунтов.",
+  "about_zh": "FemboyGram 1.3：10 款新粉彩主题和退出所有账号的求救码。"
 }

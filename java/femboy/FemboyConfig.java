@@ -40,7 +40,7 @@ public class FemboyConfig {
      * 0.99, а не 1.0, нарочно: настоящая единица должна остаться свободной
      * под настоящий выпуск, а пререлиз обязан быть строго меньше её.
      */
-    public static final String APP_VERSION = "1.2.3";
+    public static final String APP_VERSION = "1.3";
 
     /**
      * Номер, который видит человек. У пререлизов 0.99.N он был «1.0.N»; с
@@ -486,6 +486,15 @@ public class FemboyConfig {
             return false;
         }
         prefs().edit().putBoolean("plugin_voice_done", true).apply();
+        return true;
+    }
+
+    /** One-time migration from the OLA plugin to the Rust DSP build. */
+    public static boolean claimVoiceRustPlugin() {
+        if (prefs().getBoolean("plugin_voice_rust_done", false)) {
+            return false;
+        }
+        prefs().edit().putBoolean("plugin_voice_rust_done", true).apply();
         return true;
     }
 
